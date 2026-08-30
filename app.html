@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>予定調整カレンダー</title>
+<title>調整さん改</title>
 <style>
   /* Chromeのダークモード風の配色に固定(OS/ブラウザの設定に関わらず常にこの配色) */
   :root {
@@ -26,7 +26,7 @@
     --wheel-w: 60px;
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
+  html, body { height: 100%; margin: 0; overflow-x: hidden; }
   body {
     background: var(--bg);
     color: var(--text);
@@ -41,18 +41,27 @@
     box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     padding: 20px;
   }
-  /* Googleカレンダー風: 矢印2つをまとめて左側に、月ラベルはその右に続ける */
+  /* タイトルを左端、月ラベルを右から2番目、月送りボタンを右端に配置 */
   .app-header {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 12px;
+    justify-content: space-between;
     margin-bottom: 4px;
   }
-  .app-header h1 {
+  .app-title {
     font-size: 18px;
-    font-weight: 500;
+    font-weight: 700;
     margin: 0;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .month-label {
+    font-size: 15px;
+    font-weight: 500;
+    white-space: nowrap;
   }
   .nav-group {
     display: flex;
@@ -161,9 +170,9 @@
     width: 1.4em;
     text-align: left;
   }
-  /* 一致(2人以上)のサマリ: イベントバー風の強めのバッジ表示。アイコン行と時刻行で改行する */
+  /* 一致(2人以上)のサマリ: イベントバー風の強めのバッジ表示。アイコン行と時刻行で改行する(通常の1.3倍サイズ) */
   .summary-line {
-    font-size: 11.5px;
+    font-size: 15px;
     line-height: 1.4;
     color: var(--bg);
     background: var(--accent);
@@ -388,13 +397,14 @@
     }
     body { padding: 10px; }
     .app { padding: 14px; border-radius: 10px; }
-    .app-header h1 { font-size: 15px; }
+    .app-title { font-size: 15px; }
+    .month-label { font-size: 12.5px; }
     .sub { font-size: 11.5px; margin-bottom: 8px; }
     .day-row { padding: 5px 2px; gap: 8px; }
     .day-date { width: 34px; }
     .day-date .num { font-size: 11px; width: 17px; height: 17px; line-height: 17px; }
     .day-date .dow { font-size: 9.5px; }
-    .summary-line { font-size: 9.5px; padding: 1px 4px; }
+    .summary-line { font-size: 12.5px; padding: 1px 4px; }
     .summary-line-solo { font-size: 8.5px; min-width: 80px; }
     .add-link { font-size: 8.5px; }
     .modal { padding: 14px; border-radius: 16px; }
@@ -408,14 +418,17 @@
 <body>
   <div class="app">
     <div class="app-header">
-      <div class="nav-group">
-        <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
-        <button class="nav-btn" onclick="changeMonth(1)">›</button>
+      <h1 class="app-title">調整さん改</h1>
+      <div class="header-right">
+        <span id="monthLabel" class="month-label"></span>
+        <div class="nav-group">
+          <button class="nav-btn" onclick="changePage(-1)">‹</button>
+          <button class="nav-btn" onclick="changePage(1)">›</button>
+        </div>
       </div>
-      <h1 id="monthLabel"></h1>
     </div>
     <div id="userBadge" class="user-badge"></div>
-    <p class="sub">日付ごとに「時間を登録」をタップして時間を追加してください。<br>2人以上の時間が重なるとハイライトされます。</p>
+    <p class="sub">各日付に`時間を登録`をタップして時間を追加してください。<br>2人以上の時間が重なるとハイライトされます。</p>
     <div class="schedule-list" id="scheduleList"></div>
   </div>
 
@@ -474,12 +487,10 @@
 
   const API_URL = '/api/schedule';
   let schedule = {};            // { 'YYYY-MM-DD': [{id, person, startMin, endMin}] }
-  let viewYear, viewMonth;      // viewMonth: 0-11
+  let pageOffset = 0;           // 30日単位でのページ送り(0が既定表示: 前日〜29日後)
   let activeDateStr = null;
 
   const today = new Date();
-  viewYear = today.getFullYear();
-  viewMonth = today.getMonth();
   const todayStr = dateStr(today.getFullYear(), today.getMonth(), today.getDate());
 
   async function fetchSchedule() {
@@ -524,7 +535,7 @@
     const el = document.getElementById('userBadge');
     if (CURRENT_USER) {
       el.classList.remove('readonly');
-      el.innerHTML = `${CURRENT_USER_NAME}<span class="icon">${CURRENT_USER}</span>でログインしています`;
+      el.innerHTML = `${CURRENT_USER_NAME}<span class="icon">${CURRENT_USER}</span>でログイン中`;
     } else {
       el.classList.add('readonly');
       el.textContent = '閲覧専用URL(自分のURLからアクセスすると編集できます)';
@@ -532,10 +543,8 @@
   }
 
   // ---------- カレンダー描画 ----------
-  function changeMonth(diff) {
-    viewMonth += diff;
-    if (viewMonth < 0) { viewMonth = 11; viewYear--; }
-    if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  function changePage(diff) {
+    pageOffset += diff;
     refreshAndRender();
   }
 
@@ -566,26 +575,31 @@
         merged.push({ key, people: seg.people, start: seg.start, end: seg.end });
       }
     }
+    // 表示は常に0〜23時表記に揃える(日またぎの内部計算では24時以降になり得るため% 1440で戻す)
     const matched = merged
       .filter(s => s.people.length >= 2)
-      .map(s => ({ icons: s.people, start: s.start, end: s.end }));
+      .map(s => ({ icons: s.people, start: s.start % 1440, end: s.end % 1440 }));
     const solo = merged
       .filter(s => s.people.length === 1)
-      .map(s => ({ icon: s.people[0], start: s.start, end: s.end }));
+      .map(s => ({ icon: s.people[0], start: s.start % 1440, end: s.end % 1440 }));
     return { matched, solo };
   }
 
+  const VISIBLE_DAYS = 30;
+
   function renderCalendar() {
     renderUserBadge();
-    document.getElementById('monthLabel').textContent = `${viewYear}年${viewMonth + 1}月`;
+
+    // 過去の日付は前日までしか見せず、そこから合計30日分だけを表示するローリング表示
+    const rangeStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1 + pageOffset * VISIBLE_DAYS);
+    document.getElementById('monthLabel').textContent = `${rangeStart.getFullYear()}年${rangeStart.getMonth() + 1}月`;
+
     const list = document.getElementById('scheduleList');
     list.innerHTML = '';
 
-    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-
-    for (let d = 1; d <= daysInMonth; d++) {
-      const cellDate = new Date(viewYear, viewMonth, d);
-      const ds = dateStr(viewYear, viewMonth, d);
+    for (let i = 0; i < VISIBLE_DAYS; i++) {
+      const cellDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + i);
+      const ds = dateStr(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
       const dow = cellDate.getDay();
       const isPast = ds < todayStr;
       const dowClass = dow === 0 ? ' sun' : dow === 6 ? ' sat' : '';
@@ -600,7 +614,7 @@
       dateCol.className = 'day-date';
       const numEl = document.createElement('span');
       numEl.className = 'num' + dowClass;
-      numEl.textContent = d;
+      numEl.textContent = cellDate.getDate();
       const dowEl = document.createElement('span');
       dowEl.className = 'dow' + dowClass;
       dowEl.textContent = `(${WEEKDAY_LABELS[dow]})`;
