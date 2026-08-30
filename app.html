@@ -978,18 +978,26 @@
     if (!entry || entry.person !== CURRENT_USER) return; // 自分の予定だけ削除可能
     schedule[activeDateStr] = schedule[activeDateStr].filter(e => e.id !== id);
     if (schedule[activeDateStr].length === 0) delete schedule[activeDateStr];
-    if (editingEntryId === id) {
-      editingEntryId = null;
-      updateAddButtonLabel();
-    }
     await saveSchedule();
+
+    // 削除後、自分の予定が残っていれば一番早いものにフォーカスし直す。無ければ新規登録モードに戻す
+    const remainingOwn = (schedule[activeDateStr] || []).filter(e => e.person === CURRENT_USER);
+    if (remainingOwn.length > 0) {
+      const earliest = remainingOwn.slice().sort((a, b) => a.startMin - b.startMin)[0];
+      editingEntryId = earliest.id;
+      loadEntryIntoWheels(earliest);
+    } else {
+      editingEntryId = null;
+    }
+    updateAddButtonLabel();
     renderEntryList();
   }
 
   function renderEntryList() {
     const list = document.getElementById('entryList');
     list.innerHTML = '';
-    const entries = schedule[activeDateStr] || [];
+    // 時間帯が早い順に並べる
+    const entries = (schedule[activeDateStr] || []).slice().sort((a, b) => a.startMin - b.startMin);
     if (entries.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'entry-empty';
