@@ -41,16 +41,23 @@
     box-shadow: 0 10px 30px rgba(0,0,0,0.15);
     padding: 20px;
   }
+  /* Googleカレンダー風: 矢印2つをまとめて左側に、月ラベルはその右に続ける */
   .app-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 12px;
     margin-bottom: 4px;
   }
   .app-header h1 {
     font-size: 18px;
     font-weight: 500;
     margin: 0;
+  }
+  .nav-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
   }
   .nav-btn {
     border: none;
@@ -121,6 +128,9 @@
   .day-cell.has-match:hover { background: rgba(138, 180, 248, 0.22); }
   /* 月初/月末の隣の月の日付: 薄く表示 */
   .day-cell.outside { opacity: 0.45; }
+  /* 今日より前の日付: Googleカレンダー風にやや控えめなグレーアウト */
+  .day-cell.past .day-num { color: var(--muted); }
+  .day-cell.past { opacity: 0.7; }
   .day-num {
     font-size: 12px;
     font-weight: 500;
@@ -343,40 +353,11 @@
   .entry-row.foreign {
     opacity: 0.7;
   }
-  .entry-actions {
-    display: flex;
-    gap: 2px;
-    flex-shrink: 0;
-  }
-  .entry-row .edit {
-    border: none;
-    background: transparent;
-    color: var(--accent);
-    font-size: 15px;
-    cursor: pointer;
-    padding: 0 4px;
-  }
-  .entry-row .del {
-    border: none;
-    background: transparent;
-    color: var(--danger);
-    font-size: 16px;
-    cursor: pointer;
-    padding: 0 4px;
-  }
   .entry-empty {
     font-size: 12.5px;
     color: var(--muted);
     padding: 6px 2px 2px;
   }
-  .cancel-edit-link {
-    text-align: center;
-    font-size: 12px;
-    color: var(--muted);
-    cursor: pointer;
-    margin: -8px 0 16px;
-  }
-  .cancel-edit-link:hover { color: var(--accent); }
 
   /* ---- スマホ表示向けの調整 ---- */
   @media (max-width: 480px) {
@@ -404,9 +385,11 @@
 <body>
   <div class="app">
     <div class="app-header">
-      <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+      <div class="nav-group">
+        <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+        <button class="nav-btn" onclick="changeMonth(1)">›</button>
+      </div>
       <h1 id="monthLabel"></h1>
-      <button class="nav-btn" onclick="changeMonth(1)">›</button>
     </div>
     <div id="userBadge" class="user-badge"></div>
     <p class="sub">日付のマスをタップして時間を追加してください。2人以上の時間が重なると濃いバッジで、重なっていない予定は薄い文字でサマリ表示されます。</p>
@@ -446,7 +429,6 @@
         </div>
 
         <button class="add-entry-btn" id="addEntryBtn" onclick="addEntry()">時間を追加</button>
-        <p class="cancel-edit-link" id="cancelEditLink" onclick="cancelEdit()" hidden>編集をキャンセル</p>
       </div>
 
       <p class="entry-list-title">この日に追加された時間</p>
@@ -521,7 +503,7 @@
     const el = document.getElementById('userBadge');
     if (CURRENT_USER) {
       el.classList.remove('readonly');
-      el.innerHTML = `<span class="icon">${CURRENT_USER}</span>:${CURRENT_USER_NAME}がログインしています`;
+      el.innerHTML = `${CURRENT_USER_NAME}<span class="icon">${CURRENT_USER}</span>でログインしています`;
     } else {
       el.classList.add('readonly');
       el.textContent = '閲覧専用URL(自分のURLからアクセスすると編集できます)';
@@ -589,9 +571,13 @@
       const ds = dateStr(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
       const dow = cellDate.getDay();
       const isOutside = cellDate.getMonth() !== viewMonth;
+      const isPast = !isOutside && ds < todayStr;
 
       const cell = document.createElement('div');
-      cell.className = 'day-cell' + (isOutside ? ' outside' : '') + (ds === todayStr ? ' today' : '');
+      cell.className = 'day-cell'
+        + (isOutside ? ' outside' : '')
+        + (isPast ? ' past' : '')
+        + (ds === todayStr ? ' today' : '');
       cell.onclick = () => openModal(ds);
 
       const num = document.createElement('div');
@@ -787,7 +773,6 @@
 
   function updateAddButtonLabel() {
     document.getElementById('addEntryBtn').textContent = editingEntryId ? '更新する' : '時間を追加';
-    document.getElementById('cancelEditLink').hidden = !editingEntryId;
   }
 
   async function addEntry() {
@@ -817,41 +802,8 @@
       });
     }
     editingEntryId = null;
-    updateAddButtonLabel();
     await saveSchedule();
-    renderEntryList();
-  }
-
-  function editEntry(id) {
-    const entry = (schedule[activeDateStr] || []).find(e => e.id === id);
-    if (!entry || entry.person !== CURRENT_USER) return; // 自分の予定だけ編集可能
-    editingEntryId = id;
-    wheels.startHour.setIndex(Math.floor(entry.startMin / 60) % 24);
-    wheels.startMinute.setIndex(Math.max(0, MINUTES.indexOf(entry.startMin % 60)));
-    wheels.endHour.setIndex(Math.floor(entry.endMin / 60) % 24);
-    wheels.endMinute.setIndex(Math.max(0, MINUTES.indexOf(entry.endMin % 60)));
-    updateAddButtonLabel();
-    renderEntryList();
-  }
-
-  function cancelEdit() {
-    editingEntryId = null;
-    updateAddButtonLabel();
-    renderEntryList();
-  }
-
-  async function deleteEntry(id) {
-    if (!activeDateStr || !schedule[activeDateStr]) return;
-    const entry = schedule[activeDateStr].find(e => e.id === id);
-    if (!entry || entry.person !== CURRENT_USER) return; // 自分の予定だけ削除可能
-    schedule[activeDateStr] = schedule[activeDateStr].filter(e => e.id !== id);
-    if (schedule[activeDateStr].length === 0) delete schedule[activeDateStr];
-    if (editingEntryId === id) {
-      editingEntryId = null;
-      updateAddButtonLabel();
-    }
-    await saveSchedule();
-    renderEntryList();
+    closeModal(); // 押したらポップアップを閉じる
   }
 
   function renderEntryList() {
@@ -872,21 +824,6 @@
       const label = document.createElement('span');
       label.textContent = `${e.person}: ${formatHM(e.startMin)}〜${formatHM(e.endMin)}`;
       row.appendChild(label);
-      if (isOwn) {
-        const actions = document.createElement('span');
-        actions.className = 'entry-actions';
-        const edit = document.createElement('button');
-        edit.className = 'edit';
-        edit.textContent = '✎';
-        edit.onclick = () => editEntry(e.id);
-        const del = document.createElement('button');
-        del.className = 'del';
-        del.textContent = '×';
-        del.onclick = () => deleteEntry(e.id);
-        actions.appendChild(edit);
-        actions.appendChild(del);
-        row.appendChild(actions);
-      }
       list.appendChild(row);
     });
   }
