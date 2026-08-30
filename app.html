@@ -120,6 +120,33 @@
     margin: 0 0 10px;
   }
 
+  /* ---- ユーザー一覧 ---- */
+  .user-list {
+    margin: 0 0 14px;
+  }
+  .user-list-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 6px;
+  }
+  .user-list-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .user-list-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--key);
+    border-radius: 999px;
+    padding: 4px 10px 4px 12px;
+  }
+
   /* ---- スケジュール表示(Googleカレンダーの「スケジュール」表示風: 縦一列の一覧) ---- */
   .schedule-list {
     display: flex;
@@ -482,6 +509,7 @@
     </div>
     <div class="user-badge-row"><span id="userBadge" class="user-badge"></span></div>
     <p class="sub">各日付をタップして時間を追加してください。<br>2人以上の時間が重なるとハイライトされます。</p>
+    <div id="userList" class="user-list"></div>
     <div class="schedule-list" id="scheduleList"></div>
   </div>
 
@@ -992,6 +1020,16 @@
   document.getElementById('overlay').addEventListener('click', (e) => {
     if (e.target.id === 'overlay') closeModal();
   });
+
+  // 誰がどのアイコンか一目でわかるよう、説明文の下に一覧表示する
+  function renderUserList() {
+    const el = document.getElementById('userList');
+    const items = Object.entries(USER_MAP)
+      .map(([name, icon]) => `<span class="user-list-item">${name}<span class="icon-fixed">${icon}</span></span>`)
+      .join('');
+    el.innerHTML = `<p class="user-list-title">ユーザー一覧</p><div class="user-list-items">${items}</div>`;
+  }
+  renderUserList();
 
   refreshAndRender();
 </script>
