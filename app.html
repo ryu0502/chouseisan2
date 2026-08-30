@@ -84,8 +84,14 @@
     color: var(--text);
     width: 34px;
     height: 34px;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 50%;
     font-size: 18px;
+    line-height: 1;
     cursor: pointer;
   }
   .nav-btn:hover { background: var(--key-hover); }
@@ -442,7 +448,7 @@
     }
     body { padding: 10px; }
     .app { padding: 14px; border-radius: 10px; }
-    .app-title { font-size: 25px; }
+    .app-title { font-size: 32px; }
     .header-right { padding: 2px 3px 2px 10px; margin-left: 8px; }
     .month-label { font-size: 18px; }
     .nav-btn { width: 28px; height: 28px; font-size: 15px; }
@@ -869,12 +875,13 @@
       editorArea.hidden = false;
       notice.hidden = true;
       initWheels();
-      // 自分の予定が1件だけならそれを編集モードで開く。複数ある時は「どれを編集するか」が
-      // 曖昧になるため自動選択せず、一覧から選んでもらう(誤って違う予定を編集してしまう不具合の対策)
+      // 自分の予定があれば、一番早い時間帯のものを編集モードで開く(複数ある場合も基準を明確にする)。
+      // 別の予定を編集したい時は一覧からクリックして選び直せる
       const ownEntries = (schedule[activeDateStr] || []).filter(e => e.person === CURRENT_USER);
-      if (ownEntries.length === 1) {
-        editingEntryId = ownEntries[0].id;
-        loadEntryIntoWheels(ownEntries[0]);
+      if (ownEntries.length > 0) {
+        const earliest = ownEntries.slice().sort((a, b) => a.startMin - b.startMin)[0];
+        editingEntryId = earliest.id;
+        loadEntryIntoWheels(earliest);
       }
       updateAddButtonLabel();
     } else {
