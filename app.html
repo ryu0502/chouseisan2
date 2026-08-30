@@ -508,8 +508,8 @@
       </div>
     </div>
     <div class="user-badge-row"><span id="userBadge" class="user-badge"></span></div>
-    <p class="sub">各日付をタップして時間を追加してください。<br>2人以上の時間が重なるとハイライトされます。</p>
     <div id="userList" class="user-list"></div>
+    <p class="sub">各日付をタップして時間を追加してください。<br>2人以上の時間が重なるとハイライトされます。</p>
     <div class="schedule-list" id="scheduleList"></div>
   </div>
 
@@ -553,7 +553,7 @@
 
 <script>
   // URLの末尾セグメントで編集者を固定する
-  const USER_MAP = { ryu: '☕', teketeke: '👻', koromo: '衣', sinome: '🤍' };
+  const USER_MAP = { ryu: '☕', sinome: '🤍', teketeke: '👻', koromo: '衣' };
 
   function detectCurrentUser() {
     const segments = location.pathname.split('/').filter(Boolean);
