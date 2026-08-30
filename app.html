@@ -554,6 +554,7 @@
 <script>
   // URLの末尾セグメントで編集者を固定する
   const USER_MAP = { ryu: '☕', sinome: '🤍', teketeke: '👻', koromo: '衣' };
+  const ICON_ORDER = Object.values(USER_MAP); // 時間で並び順が決まらない時のタイブレーク用
 
   function detectCurrentUser() {
     const segments = location.pathname.split('/').filter(Boolean);
@@ -643,8 +644,20 @@
     for (let i = 0; i < points.length - 1; i++) {
       const t1 = points[i], t2 = points[i + 1];
       if (t1 === t2) continue;
-      const active = Array.from(new Set(norm.filter(e => e.start <= t1 && e.end >= t2).map(e => e.person)));
-      if (active.length > 0) segments.push({ people: active, start: t1, end: t2 });
+      const activeEntries = norm.filter(e => e.start <= t1 && e.end >= t2);
+      if (activeEntries.length === 0) continue;
+      // 同じ人が複数該当する場合は一番早い開始時刻を採用する
+      const byPerson = new Map();
+      for (const e of activeEntries) {
+        const cur = byPerson.get(e.person);
+        if (!cur || e.start < cur.start) byPerson.set(e.person, e);
+      }
+      // アイコンの並び順: 先に時間帯に入っていた人が先頭、後から合流した人ほど後ろに。
+      // 開始時刻が同じ場合はユーザ一覧の順番で決める
+      const people = Array.from(byPerson.values())
+        .sort((a, b) => a.start - b.start || ICON_ORDER.indexOf(a.person) - ICON_ORDER.indexOf(b.person))
+        .map(e => e.person);
+      segments.push({ people, start: t1, end: t2 });
     }
     // 同じメンバー構成が連続していたら結合する
     const merged = [];
