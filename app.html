@@ -44,6 +44,7 @@
   /* タイトルを左端、月ラベルを右から2番目、月送りボタンを右端に配置 */
   .app-header {
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 4px;
@@ -52,20 +53,23 @@
     font-size: 34px;
     font-weight: 700;
     margin: 0;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   /* タイトルの文字列と続けて読めてしまわないよう、月ラベル+ボタンをひとまとまりの部品として見せる。
-     ボタン同士・ボタンと月ラベルの間もぎゅっと寄せる */
+     ボタン同士・ボタンと月ラベルの間もぎゅっと寄せる。タイトルより一回り小さくして主従をはっきりさせる */
   .header-right {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     background: var(--key);
     border-radius: 999px;
-    padding: 4px 6px 4px 16px;
-    margin-left: 16px;
+    padding: 3px 4px 3px 14px;
+    margin-left: 12px;
+    flex-shrink: 0;
   }
   .month-label {
-    font-size: 28px;
+    font-size: 20px;
     font-weight: 700;
     white-space: nowrap;
   }
@@ -78,14 +82,15 @@
     border: none;
     background: transparent;
     color: var(--text);
-    width: 48px;
-    height: 48px;
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
-    font-size: 26px;
+    font-size: 20px;
     cursor: pointer;
   }
   .nav-btn:hover { background: var(--key-hover); }
-  /* ログイン中の人が一目でわかるよう、右寄せ+背景色付きのバッジにして目立たせる */
+  /* ログイン中の人が一目でわかるよう、右寄せ+背景色付きのバッジにして目立たせる。
+     名前+アイコンだけ強調色、「でログイン中」は通常の文字色にする */
   .user-badge-row {
     text-align: right;
     margin: 4px 0 10px;
@@ -96,11 +101,12 @@
     gap: 6px;
     font-size: 15px;
     font-weight: 700;
-    color: var(--accent);
+    color: var(--text);
     background: var(--key);
     border-radius: 999px;
     padding: 5px 14px;
   }
+  .user-badge .badge-name { color: var(--accent); }
   .user-badge .icon { font-size: 18px; }
   .user-badge.readonly { color: var(--danger); }
   .sub {
@@ -182,7 +188,7 @@
     justify-content: center;
     width: 1.6em;
     height: 1.6em;
-    background: rgba(255, 255, 255, 0.35);
+    background: rgba(0, 0, 0, 0.16);
     border-radius: 50%;
     vertical-align: middle;
   }
@@ -433,9 +439,10 @@
     }
     body { padding: 10px; }
     .app { padding: 14px; border-radius: 10px; }
-    .app-title { font-size: 26px; }
-    .month-label { font-size: 20px; }
-    .nav-btn { width: 40px; height: 40px; font-size: 20px; }
+    .app-title { font-size: 22px; }
+    .header-right { padding: 2px 3px 2px 10px; margin-left: 8px; }
+    .month-label { font-size: 15px; }
+    .nav-btn { width: 32px; height: 32px; font-size: 16px; }
     .sub { font-size: 11.5px; margin-bottom: 8px; }
     .day-row { padding: 5px 2px; gap: 8px; }
     .day-date { width: 50px; }
@@ -572,7 +579,7 @@
     const el = document.getElementById('userBadge');
     if (CURRENT_USER) {
       el.classList.remove('readonly');
-      el.innerHTML = `${CURRENT_USER_NAME}<span class="icon">${CURRENT_USER}</span>でログイン中`;
+      el.innerHTML = `<span class="badge-name">${CURRENT_USER_NAME}<span class="icon">${CURRENT_USER}</span></span>でログイン中`;
     } else {
       el.classList.add('readonly');
       el.textContent = '閲覧専用URL(自分のURLからアクセスすると編集できます)';
@@ -668,7 +675,7 @@
         const s = document.createElement('div');
         s.className = 'summary-line tier-' + Math.min(seg.icons.length, 4);
         const icons = seg.icons.map(ic => `<span class="icon-fixed">${ic}</span>`).join('');
-        s.innerHTML = `${icons}:\n${formatHM(seg.start)} ~ ${formatHM(seg.end)}`;
+        s.innerHTML = `${icons}\n${formatHM(seg.start)} ~ ${formatHM(seg.end)}`;
         content.appendChild(s);
       });
       if (solo.length > 0) {
@@ -677,7 +684,7 @@
         solo.forEach(seg => {
           const s = document.createElement('div');
           s.className = 'summary-line-solo';
-          s.innerHTML = `<span class="icon-fixed">${seg.icon}</span>: ${formatHM(seg.start)} ~ ${formatHM(seg.end)}`;
+          s.innerHTML = `<span class="icon-fixed">${seg.icon}</span> ${formatHM(seg.start)} ~ ${formatHM(seg.end)}`;
           soloWrap.appendChild(s);
         });
         content.appendChild(soloWrap);
@@ -953,7 +960,7 @@
       const row = document.createElement('div');
       row.className = 'entry-row' + (e.id === editingEntryId ? ' editing' : '') + (isOwn ? '' : ' foreign');
       const label = document.createElement('span');
-      label.innerHTML = `<span class="icon-fixed">${e.person}</span>: ${formatHM(e.startMin)}〜${formatHM(e.endMin)}`;
+      label.innerHTML = `<span class="icon-fixed">${e.person}</span> ${formatHM(e.startMin)}〜${formatHM(e.endMin)}`;
       row.appendChild(label);
       if (isOwn) {
         row.style.cursor = 'pointer';
