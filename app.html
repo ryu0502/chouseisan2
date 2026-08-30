@@ -49,15 +49,16 @@
     margin-bottom: 4px;
   }
   .app-title {
-    font-size: 28px;
+    font-size: 34px;
     font-weight: 700;
     margin: 0;
   }
-  /* タイトルの文字列と続けて読めてしまわないよう、月ラベル+ボタンをひとまとまりの部品として見せる */
+  /* タイトルの文字列と続けて読めてしまわないよう、月ラベル+ボタンをひとまとまりの部品として見せる。
+     ボタン同士・ボタンと月ラベルの間もぎゅっと寄せる */
   .header-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 4px;
     background: var(--key);
     border-radius: 999px;
     padding: 4px 6px 4px 16px;
@@ -71,7 +72,7 @@
   .nav-group {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 0;
   }
   .nav-btn {
     border: none;
@@ -84,14 +85,21 @@
     cursor: pointer;
   }
   .nav-btn:hover { background: var(--key-hover); }
-  /* ログイン中の人が一目でわかるよう、はっきりした色と太字で目立たせる */
+  /* ログイン中の人が一目でわかるよう、右寄せ+背景色付きのバッジにして目立たせる */
+  .user-badge-row {
+    text-align: right;
+    margin: 4px 0 10px;
+  }
   .user-badge {
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 15px;
     font-weight: 700;
     color: var(--accent);
-    text-align: left;
-    margin: 4px 0 10px;
+    background: var(--key);
+    border-radius: 999px;
+    padding: 5px 14px;
   }
   .user-badge .icon { font-size: 18px; }
   .user-badge.readonly { color: var(--danger); }
@@ -167,11 +175,16 @@
     gap: 3px;
     padding-top: 2px;
   }
-  /* アイコンごとに幅を揃えて、後ろの時刻表示が縦にきれいに揃うようにする */
+  /* アイコンごとに幅を揃えて時刻表示の位置を揃えつつ、背景の丸チップでアイコン自体も見やすくする */
   .icon-fixed {
-    display: inline-block;
-    width: 1.4em;
-    text-align: left;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6em;
+    height: 1.6em;
+    background: rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    vertical-align: middle;
   }
   /* 一致(2人以上)のサマリ: イベントバー風の強めのバッジ表示。アイコン行と時刻行で改行する(通常の1.3倍サイズ) */
   .summary-line {
@@ -184,10 +197,10 @@
     padding: 2px 6px;
     border-radius: 4px;
   }
-  /* 一致人数が多いほど青が濃くなる段階表示(4人が現行のaccentよりやや濃い色、他は薄く) */
-  .summary-line.tier-2 { background: #d3e3fd; }
-  .summary-line.tier-3 { background: #a7c6fa; }
-  .summary-line.tier-4 { background: #6fa1f5; }
+  /* 一致人数が多いほど青が濃くなる段階表示(4人はより濃く、2人はぐっと薄く) */
+  .summary-line.tier-2 { background: #e6eefd; }
+  .summary-line.tier-3 { background: #b3cdfa; }
+  .summary-line.tier-4 { background: #4a7fe0; }
   /* 一致していない単独の予定: 控えめな表示でコントラストをつける。横幅を活かして2列に並べる */
   .solo-wrap {
     display: flex;
@@ -392,14 +405,21 @@
     opacity: 0.7;
   }
   .entry-row .del {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: none;
-    background: transparent;
+    background: rgba(242, 139, 130, 0.16);
     color: var(--danger);
-    font-size: 16px;
+    font-size: 19px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
     cursor: pointer;
-    padding: 0 4px;
+    padding: 0;
     flex-shrink: 0;
   }
+  .entry-row .del:hover { background: rgba(242, 139, 130, 0.28); }
   .entry-empty {
     font-size: 12.5px;
     color: var(--muted);
@@ -413,8 +433,8 @@
     }
     body { padding: 10px; }
     .app { padding: 14px; border-radius: 10px; }
-    .app-title { font-size: 22px; }
-    .month-label { font-size: 22px; }
+    .app-title { font-size: 26px; }
+    .month-label { font-size: 20px; }
     .nav-btn { width: 40px; height: 40px; font-size: 20px; }
     .sub { font-size: 11.5px; margin-bottom: 8px; }
     .day-row { padding: 5px 2px; gap: 8px; }
@@ -443,7 +463,7 @@
         </div>
       </div>
     </div>
-    <div id="userBadge" class="user-badge"></div>
+    <div class="user-badge-row"><span id="userBadge" class="user-badge"></span></div>
     <p class="sub">各日付をタップして時間を追加してください。<br>2人以上の時間が重なるとハイライトされます。</p>
     <div class="schedule-list" id="scheduleList"></div>
   </div>
