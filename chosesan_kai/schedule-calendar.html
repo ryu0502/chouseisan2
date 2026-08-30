@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>予定調整カレンダー</title>
+<style>
+  /* Chromeのダークモード風の配色に固定(OS/ブラウザの設定に関わらず常にこの配色) */
+  :root {
+    color-scheme: dark;
+    --bg: #202124;
+    --panel: #2d2e30;
+    --text: #e8eaed;
+    --muted: #9aa0a6;
+    --accent: #8ab4f8;
+    --accent-hover: #aecbfa;
+    --key: #3c4043;
+    --key-hover: #4a4d51;
+    --danger: #f28b82;
+    --danger-hover: #ee6a60;
+    --border: #5f6368;
+    --sunday: #f28b82;
+    --saturday: #8ab4f8;
+    --match-bg: rgba(138, 180, 248, 0.14);
+    --match-border: rgba(138, 180, 248, 0.4);
+    --wheel-w: 60px;
+    --wheel-w-person: 68px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Hiragino Sans", system-ui, sans-serif;
+    padding: 24px;
+  }
+  .app {
+    max-width: 780px;
+    margin: 0 auto;
+    background: var(--panel);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    padding: 20px;
+  }
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .app-header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .nav-btn {
+    border: none;
+    background: var(--key);
+    color: var(--text);
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .nav-btn:hover { background: var(--key-hover); }
+  .user-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: var(--key);
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin: 8px 0 4px;
+  }
+  .user-badge .icon { font-size: 16px; }
+  .user-badge.readonly { color: var(--danger); }
+  .sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 16px;
+  }
+  .weekdays, .grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .weekdays {
+    margin-bottom: 6px;
+  }
+  .weekdays div {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 4px 0;
+  }
+  .weekdays div.sun { color: var(--sunday); }
+  .weekdays div.sat { color: var(--saturday); }
+  .day-cell {
+    min-height: 92px;
+    background: var(--key);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 6px 6px 8px;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+  .day-cell:hover { background: var(--key-hover); }
+  .day-cell.empty { visibility: hidden; cursor: default; }
+  /* 一致(部分一致)があった日は枠と背景を強調して、無い日とのコントラストをはっきりさせる */
+  .day-cell.has-match {
+    background: var(--match-bg);
+    border-color: var(--match-border);
+  }
+  .day-cell.has-match:hover { background: rgba(138, 180, 248, 0.22); }
+  .day-num {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .day-num.sun { color: var(--sunday); }
+  .day-num.sat { color: var(--saturday); }
+  /* 一致(2人以上)のサマリ: 強めのバッジ表示 */
+  .summary-line {
+    display: inline-block;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--bg);
+    background: var(--accent);
+    font-weight: 700;
+    word-break: break-word;
+    padding: 2px 6px;
+    border-radius: 6px;
+    margin-bottom: 3px;
+  }
+  /* 一致していない単独の予定: 控えめな表示でコントラストをつける */
+  .summary-line-solo {
+    font-size: 10px;
+    line-height: 1.35;
+    color: var(--muted);
+    word-break: break-word;
+    margin-bottom: 2px;
+  }
+  .add-link {
+    margin-top: auto;
+    font-size: 11px;
+    color: var(--muted);
+    padding-top: 4px;
+  }
+  .day-cell:hover .add-link { color: var(--accent); }
+
+  /* ---- モーダル ---- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 50;
+  }
+  .overlay[hidden] { display: none; }
+  .modal {
+    background: var(--panel);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    padding: 20px;
+    width: 400px;
+    max-width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .modal-header h2 {
+    font-size: 16px;
+    margin: 0;
+  }
+  .close-btn {
+    border: none;
+    background: var(--key);
+    color: var(--text);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 15px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .close-btn:hover { background: var(--key-hover); }
+
+  .readonly-notice {
+    font-size: 12.5px;
+    color: var(--danger);
+    background: rgba(242, 139, 130, 0.12);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+
+  .picker-labels {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .picker-labels span { flex-shrink: 0; text-align: center; }
+  .lbl-normal { width: var(--wheel-w); }
+  .lbl-sep { width: 14px; }
+  .lbl-sep-wide { width: 20px; }
+  .picker-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0 10px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .picker-row::-webkit-scrollbar { display: none; }
+  .sep {
+    font-size: 14px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .wheel-wrap {
+    position: relative;
+    width: var(--wheel-w);
+    height: 180px;
+    flex-shrink: 0;
+  }
+  .wheel-highlight {
+    position: absolute;
+    left: 0; right: 0;
+    top: 72px;
+    height: 36px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: rgba(138,180,248,0.12);
+    pointer-events: none;
+    border-radius: 6px;
+  }
+  .wheel-viewport {
+    position: relative;
+    height: 100%;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    padding: 72px 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .wheel-viewport::-webkit-scrollbar { display: none; }
+  .wheel-viewport.dragging {
+    cursor: grabbing;
+    scroll-snap-type: none;
+  }
+  .wheel-item {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--muted);
+    scroll-snap-align: center;
+    user-select: none;
+  }
+  .wheel-item.selected {
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .add-entry-btn {
+    display: block;
+    width: 100%;
+    border: none;
+    background: var(--accent);
+    color: #202124;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 0;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-bottom: 16px;
+  }
+  .add-entry-btn:hover { background: var(--accent-hover); }
+  .add-entry-btn:active { transform: scale(0.98); }
+
+  .entry-list-title {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 8px;
+  }
+  .entry-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--key);
+    border-radius: 10px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    font-size: 13.5px;
+  }
+  .entry-row.editing {
+    outline: 2px solid var(--accent);
+  }
+  .entry-row.foreign {
+    opacity: 0.7;
+  }
+  .entry-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .entry-row .edit {
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    font-size: 15px;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .entry-row .del {
+    border: none;
+    background: transparent;
+    color: var(--danger);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .entry-empty {
+    font-size: 12.5px;
+    color: var(--muted);
+    padding: 6px 2px 2px;
+  }
+  .cancel-edit-link {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    margin: -8px 0 16px;
+  }
+  .cancel-edit-link:hover { color: var(--accent); }
+
+  /* ---- スマホ表示向けの調整 ---- */
+  @media (max-width: 480px) {
+    :root {
+      --wheel-w: 52px;
+    }
+    body { padding: 10px; }
+    .app { padding: 14px; border-radius: 16px; }
+    .app-header h1 { font-size: 15px; }
+    .sub { font-size: 11.5px; margin-bottom: 10px; }
+    .weekdays, .grid { gap: 4px; }
+    .weekdays div { font-size: 10px; padding: 2px 0; }
+    .day-cell { min-height: 68px; padding: 4px 3px 5px; border-radius: 9px; }
+    .day-num { font-size: 11px; margin-bottom: 2px; }
+    .summary-line { font-size: 10px; padding: 1.5px 4px; margin-bottom: 2px; border-radius: 5px; }
+    .summary-line-solo { font-size: 9px; }
+    .add-link { font-size: 9px; }
+    .modal { padding: 14px; border-radius: 16px; }
+    .picker-row { gap: 6px; }
+    .picker-labels { gap: 6px; font-size: 9.5px; }
+    .sep { font-size: 12px; }
+    .wheel-item { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="app-header">
+      <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+      <h1 id="monthLabel"></h1>
+      <button class="nav-btn" onclick="changeMonth(1)">›</button>
+    </div>
+    <div id="userBadge" class="user-badge"></div>
+    <p class="sub">日付のマスをタップして時間を追加してください。2人以上の時間が重なると濃いバッジで、重なっていない予定は薄い文字でサマリ表示されます。</p>
+    <div class="weekdays">
+      <div class="sun">日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div class="sat">土</div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle"></h2>
+        <button class="close-btn" onclick="closeModal()">×</button>
+      </div>
+
+      <p class="readonly-notice" id="readonlyNotice" hidden>このURLでは編集できません。自分専用のURL(例: .../ryu)からアクセスすると、自分の時間を登録・編集できます。</p>
+
+      <div id="editorArea">
+        <div class="picker-labels">
+          <span class="lbl-normal">開始 時</span>
+          <span class="lbl-sep"></span>
+          <span class="lbl-normal">分</span>
+          <span class="lbl-sep-wide"></span>
+          <span class="lbl-normal">終了 時</span>
+          <span class="lbl-sep"></span>
+          <span class="lbl-normal">分</span>
+        </div>
+        <div class="picker-row">
+          <div class="wheel-wrap" id="wheelStartHour"></div>
+          <span class="sep">:</span>
+          <div class="wheel-wrap" id="wheelStartMinute"></div>
+          <span class="sep">〜</span>
+          <div class="wheel-wrap" id="wheelEndHour"></div>
+          <span class="sep">:</span>
+          <div class="wheel-wrap" id="wheelEndMinute"></div>
+        </div>
+
+        <button class="add-entry-btn" id="addEntryBtn" onclick="addEntry()">時間を追加</button>
+        <p class="cancel-edit-link" id="cancelEditLink" onclick="cancelEdit()" hidden>編集をキャンセル</p>
+      </div>
+
+      <p class="entry-list-title">この日に追加された時間</p>
+      <div id="entryList"></div>
+    </div>
+  </div>
+
+<script>
+  // URLの末尾セグメントで編集者を固定する
+  const USER_MAP = { ryu: '☕', sinome: '👻', koromo: '衣', teketeke: '🤍' };
+  const ALL_ICONS = Object.values(USER_MAP);
+
+  function detectCurrentUser() {
+    const segments = location.pathname.split('/').filter(Boolean);
+    const last = (segments[segments.length - 1] || '').toLowerCase();
+    return USER_MAP[last] || null;
+  }
+  const CURRENT_USER = detectCurrentUser();
+
+  const HOURS = Array.from({ length: 25 }, (_, i) => i);       // 0〜24時(24の次は0にループ)
+  const MINUTES = [0, 15, 30, 45];
+
+  const API_URL = '/api/schedule';
+  let schedule = {};            // { 'YYYY-MM-DD': [{id, person, startMin, endMin}] }
+  let viewYear, viewMonth;      // viewMonth: 0-11
+  let activeDateStr = null;
+
+  const today = new Date();
+  viewYear = today.getFullYear();
+  viewMonth = today.getMonth();
+
+  async function fetchSchedule() {
+    try {
+      const res = await fetch(API_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('fetch failed: ' + res.status);
+      return await res.json();
+    } catch (e) {
+      console.error('スケジュールの取得に失敗しました', e);
+      return schedule; // 失敗時は直前の状態を保持
+    }
+  }
+
+  async function saveSchedule() {
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(schedule),
+      });
+      if (!res.ok) throw new Error('save failed: ' + res.status);
+    } catch (e) {
+      console.error('スケジュールの保存に失敗しました', e);
+      alert('保存に失敗しました。通信環境を確認してもう一度お試しください。');
+    }
+  }
+
+  async function refreshAndRender() {
+    schedule = await fetchSchedule();
+    renderCalendar();
+  }
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function dateStr(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
+  function formatHM(totalMin) {
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${h}:${pad2(m)}`;
+  }
+
+  function renderUserBadge() {
+    const el = document.getElementById('userBadge');
+    if (CURRENT_USER) {
+      el.classList.remove('readonly');
+      el.innerHTML = `<span class="icon">${CURRENT_USER}</span> であなたの時間を登録できます`;
+    } else {
+      el.classList.add('readonly');
+      el.textContent = '閲覧専用URL(自分のURLからアクセスすると編集できます)';
+    }
+  }
+
+  // ---------- カレンダー描画 ----------
+  function changeMonth(diff) {
+    viewMonth += diff;
+    if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+    if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+    refreshAndRender();
+  }
+
+  // 一致(2人以上)と単独(1人)の両方の帯を、時間帯ごとにまとめて返す
+  function computeDaySummaries(entries) {
+    if (!entries || entries.length === 0) return { matched: [], solo: [] };
+    const norm = entries.map(e => {
+      let end = e.endMin;
+      if (end <= e.startMin) end += 24 * 60;
+      return { person: e.person, start: e.startMin, end };
+    });
+    const points = Array.from(new Set(norm.flatMap(e => [e.start, e.end]))).sort((a, b) => a - b);
+    const segments = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const t1 = points[i], t2 = points[i + 1];
+      if (t1 === t2) continue;
+      const active = Array.from(new Set(norm.filter(e => e.start <= t1 && e.end >= t2).map(e => e.person)));
+      if (active.length > 0) segments.push({ people: active, start: t1, end: t2 });
+    }
+    // 同じメンバー構成が連続していたら結合する
+    const merged = [];
+    for (const seg of segments) {
+      const key = seg.people.slice().sort().join(',');
+      const last = merged[merged.length - 1];
+      if (last && last.key === key && last.end === seg.start) {
+        last.end = seg.end;
+      } else {
+        merged.push({ key, people: seg.people, start: seg.start, end: seg.end });
+      }
+    }
+    const matched = merged
+      .filter(s => s.people.length >= 2)
+      .map(s => `${s.people.join('')}: ${formatHM(s.start)} ~ ${formatHM(s.end)}`);
+    const solo = merged
+      .filter(s => s.people.length === 1)
+      .map(s => `${s.people[0]}: ${formatHM(s.start)} ~ ${formatHM(s.end)}`);
+    return { matched, solo };
+  }
+
+  function renderCalendar() {
+    renderUserBadge();
+    document.getElementById('monthLabel').textContent = `${viewYear}年${viewMonth + 1}月`;
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+
+    const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0=日
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+    for (let i = 0; i < firstDay; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'day-cell empty';
+      grid.appendChild(empty);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = dateStr(viewYear, viewMonth, d);
+      const dow = new Date(viewYear, viewMonth, d).getDay();
+      const cell = document.createElement('div');
+      cell.className = 'day-cell';
+      cell.onclick = () => openModal(ds);
+
+      const num = document.createElement('div');
+      num.className = 'day-num' + (dow === 0 ? ' sun' : dow === 6 ? ' sat' : '');
+      num.textContent = d;
+      cell.appendChild(num);
+
+      const { matched, solo } = computeDaySummaries(schedule[ds]);
+      if (matched.length > 0) cell.classList.add('has-match');
+      matched.forEach(line => {
+        const s = document.createElement('div');
+        s.className = 'summary-line';
+        s.textContent = line;
+        cell.appendChild(s);
+      });
+      solo.forEach(line => {
+        const s = document.createElement('div');
+        s.className = 'summary-line-solo';
+        s.textContent = line;
+        cell.appendChild(s);
+      });
+
+      const add = document.createElement('div');
+      add.className = 'add-link';
+      add.textContent = '時間を追加';
+      cell.appendChild(add);
+
+      grid.appendChild(cell);
+    }
+  }
+
+  // ---------- ホイールピッカー ----------
+  const ITEM_H = 36;
+
+  function buildWheel(containerEl, items, initialIndex, onChange, options) {
+    const loop = !!(options && options.loop);
+    const N = items.length;
+    const REPEAT = loop ? 9 : 1;      // ループ用に同じ並びを複製して無限スクロールに見せる
+    const MIDDLE = Math.floor(REPEAT / 2);
+
+    containerEl.innerHTML = '';
+    const highlight = document.createElement('div');
+    highlight.className = 'wheel-highlight';
+    containerEl.appendChild(highlight);
+
+    const viewport = document.createElement('div');
+    viewport.className = 'wheel-viewport';
+    containerEl.appendChild(viewport);
+
+    for (let c = 0; c < REPEAT; c++) {
+      items.forEach((label) => {
+        const item = document.createElement('div');
+        item.className = 'wheel-item';
+        item.textContent = label;
+        viewport.appendChild(item);
+      });
+    }
+
+    const children = viewport.children;
+    function markSelected(rawIndex) {
+      for (let i = 0; i < children.length; i++) {
+        children[i].classList.toggle('selected', i === rawIndex);
+      }
+    }
+    function rawFromValue(valueIndex) { return MIDDLE * N + valueIndex; }
+
+    let scrollTimer = null;
+    let currentIndex = initialIndex;
+    let dragging = false;
+
+    function snapToNearest() {
+      let raw = Math.round(viewport.scrollTop / ITEM_H);
+      raw = Math.max(0, Math.min(children.length - 1, raw));
+      const valueIndex = ((raw % N) + N) % N;
+      let targetRaw = raw;
+      let instant = false;
+      if (loop) {
+        const copyIndex = Math.floor(raw / N);
+        if (copyIndex <= 1 || copyIndex >= REPEAT - 2) {
+          // 端の複製に近づいたら見た目が同じ真ん中の複製へ瞬時に戻し、無限ループに見せる
+          targetRaw = rawFromValue(valueIndex);
+          instant = true;
+        }
+      }
+      viewport.scrollTo({ top: targetRaw * ITEM_H, behavior: instant ? 'auto' : 'smooth' });
+      currentIndex = valueIndex;
+      markSelected(targetRaw);
+      onChange(valueIndex);
+    }
+
+    viewport.addEventListener('scroll', () => {
+      if (dragging) return; // ドラッグ中はpointerup側でスナップさせる
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(snapToNearest, 100);
+    });
+
+    // マウス/タッチのドラッグでホイールを回せるようにする
+    let startY = 0;
+    let startScrollTop = 0;
+    viewport.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      clearTimeout(scrollTimer);
+      startY = e.clientY;
+      startScrollTop = viewport.scrollTop;
+      viewport.setPointerCapture(e.pointerId);
+      viewport.classList.add('dragging');
+    });
+    viewport.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      viewport.scrollTop = startScrollTop - (e.clientY - startY);
+    });
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      viewport.classList.remove('dragging');
+      try { viewport.releasePointerCapture(e.pointerId); } catch (err) {}
+      snapToNearest();
+    }
+    viewport.addEventListener('pointerup', endDrag);
+    viewport.addEventListener('pointercancel', endDrag);
+    viewport.addEventListener('pointerleave', (e) => { if (dragging) endDrag(e); });
+
+    // 初期位置へ即座にスクロール
+    requestAnimationFrame(() => {
+      const raw = rawFromValue(initialIndex);
+      viewport.scrollTop = raw * ITEM_H;
+      markSelected(raw);
+    });
+
+    return {
+      getIndex: () => currentIndex,
+      setIndex: (valueIndex) => {
+        const raw = rawFromValue(valueIndex);
+        viewport.scrollTop = raw * ITEM_H;
+        currentIndex = valueIndex;
+        markSelected(raw);
+      },
+    };
+  }
+
+  let wheels = {};
+  const DEFAULT_START_HOUR = 18;
+  const DEFAULT_END_HOUR = 24;
+
+  function initWheels() {
+    wheels.startHour = buildWheel(document.getElementById('wheelStartHour'), HOURS.map(String), DEFAULT_START_HOUR, () => {}, { loop: true });
+    wheels.startMinute = buildWheel(document.getElementById('wheelStartMinute'), MINUTES.map(m => pad2(m)), 0, () => {}, { loop: true });
+    wheels.endHour = buildWheel(document.getElementById('wheelEndHour'), HOURS.map(String), DEFAULT_END_HOUR, () => {}, { loop: true });
+    wheels.endMinute = buildWheel(document.getElementById('wheelEndMinute'), MINUTES.map(m => pad2(m)), 0, () => {}, { loop: true });
+  }
+
+  // ---------- モーダル ----------
+  let editingEntryId = null;
+
+  async function openModal(ds) {
+    activeDateStr = ds;
+    editingEntryId = null;
+    const [y, m, d] = ds.split('-').map(Number);
+    document.getElementById('modalTitle').textContent = `${m}月${d}日 の時間`;
+    document.getElementById('overlay').hidden = false;
+
+    schedule = await fetchSchedule(); // 他のURLで追加された最新の内容を取得
+
+    const editorArea = document.getElementById('editorArea');
+    const notice = document.getElementById('readonlyNotice');
+    if (CURRENT_USER) {
+      editorArea.hidden = false;
+      notice.hidden = true;
+      initWheels();
+      updateAddButtonLabel();
+    } else {
+      editorArea.hidden = true;
+      notice.hidden = false;
+    }
+    renderEntryList();
+  }
+
+  function closeModal() {
+    document.getElementById('overlay').hidden = true;
+    activeDateStr = null;
+    editingEntryId = null;
+    renderCalendar();
+  }
+
+  function updateAddButtonLabel() {
+    document.getElementById('addEntryBtn').textContent = editingEntryId ? '更新する' : '時間を追加';
+    document.getElementById('cancelEditLink').hidden = !editingEntryId;
+  }
+
+  async function addEntry() {
+    if (!activeDateStr || !CURRENT_USER) return;
+    const startHour = HOURS[wheels.startHour.getIndex()];
+    const startMinute = MINUTES[wheels.startMinute.getIndex()];
+    const endHour = HOURS[wheels.endHour.getIndex()];
+    const endMinute = MINUTES[wheels.endMinute.getIndex()];
+    const startMin = startHour * 60 + startMinute;
+    const endMin = endHour * 60 + endMinute;
+
+    if (editingEntryId) {
+      const target = (schedule[activeDateStr] || []).find(e => e.id === editingEntryId && e.person === CURRENT_USER);
+      if (target) {
+        target.startMin = startMin;
+        target.endMin = endMin;
+      }
+      editingEntryId = null;
+      updateAddButtonLabel();
+    } else {
+      const entry = {
+        id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+        person: CURRENT_USER,
+        startMin,
+        endMin,
+      };
+      if (!schedule[activeDateStr]) schedule[activeDateStr] = [];
+      schedule[activeDateStr].push(entry);
+    }
+    await saveSchedule();
+    renderEntryList();
+  }
+
+  function editEntry(id) {
+    const entry = (schedule[activeDateStr] || []).find(e => e.id === id);
+    if (!entry || entry.person !== CURRENT_USER) return; // 自分の予定だけ編集可能
+    editingEntryId = id;
+    wheels.startHour.setIndex(Math.floor(entry.startMin / 60));
+    wheels.startMinute.setIndex(Math.max(0, MINUTES.indexOf(entry.startMin % 60)));
+    wheels.endHour.setIndex(Math.floor(entry.endMin / 60));
+    wheels.endMinute.setIndex(Math.max(0, MINUTES.indexOf(entry.endMin % 60)));
+    updateAddButtonLabel();
+    renderEntryList();
+  }
+
+  function cancelEdit() {
+    editingEntryId = null;
+    updateAddButtonLabel();
+    renderEntryList();
+  }
+
+  async function deleteEntry(id) {
+    if (!activeDateStr || !schedule[activeDateStr]) return;
+    const entry = schedule[activeDateStr].find(e => e.id === id);
+    if (!entry || entry.person !== CURRENT_USER) return; // 自分の予定だけ削除可能
+    schedule[activeDateStr] = schedule[activeDateStr].filter(e => e.id !== id);
+    if (schedule[activeDateStr].length === 0) delete schedule[activeDateStr];
+    if (editingEntryId === id) {
+      editingEntryId = null;
+      updateAddButtonLabel();
+    }
+    await saveSchedule();
+    renderEntryList();
+  }
+
+  function renderEntryList() {
+    const list = document.getElementById('entryList');
+    list.innerHTML = '';
+    const entries = schedule[activeDateStr] || [];
+    if (entries.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'entry-empty';
+      empty.textContent = 'まだ追加されていません。';
+      list.appendChild(empty);
+      return;
+    }
+    entries.forEach(e => {
+      const isOwn = e.person === CURRENT_USER;
+      const row = document.createElement('div');
+      row.className = 'entry-row' + (e.id === editingEntryId ? ' editing' : '') + (isOwn ? '' : ' foreign');
+      const label = document.createElement('span');
+      label.textContent = `${e.person}: ${formatHM(e.startMin)}〜${formatHM(e.endMin)}`;
+      row.appendChild(label);
+      if (isOwn) {
+        const actions = document.createElement('span');
+        actions.className = 'entry-actions';
+        const edit = document.createElement('button');
+        edit.className = 'edit';
+        edit.textContent = '✎';
+        edit.onclick = () => editEntry(e.id);
+        const del = document.createElement('button');
+        del.className = 'del';
+        del.textContent = '×';
+        del.onclick = () => deleteEntry(e.id);
+        actions.appendChild(edit);
+        actions.appendChild(del);
+        row.appendChild(actions);
+      }
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'overlay') closeModal();
+  });
+
+  refreshAndRender();
+</script>
+</body>
+</html>
