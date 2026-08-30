@@ -106,31 +106,38 @@
   }
   .day-row:last-child { border-bottom: none; }
   .day-row:hover { background: var(--key); }
-  /* 一致(部分一致)があった日は背景を強調して、無い日とのコントラストをはっきりさせる */
-  .day-row.has-match { background: var(--match-bg); }
+  /* 一致(部分一致)があった日は背景を強調して、無い日とのコントラストをはっきりさせる。
+     一致した日が連続しても境目が見えるよう、区切り線はやや濃いめの色にする */
+  .day-row.has-match {
+    background: var(--match-bg);
+    border-bottom-color: rgba(138, 180, 248, 0.5);
+  }
   .day-row.has-match:hover { background: rgba(138, 180, 248, 0.22); }
   /* 今日より前の日付: Googleカレンダー風にやや控えめなグレーアウト */
   .day-row.past { opacity: 0.6; }
 
+  /* 日付と曜日を横並びで「1(土)」のようにまとめる */
   .day-date {
     flex-shrink: 0;
-    width: 42px;
-    text-align: center;
-    padding-top: 1px;
+    width: 40px;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    padding-top: 2px;
   }
   .day-date .num {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
-    width: 24px;
-    height: 24px;
-    line-height: 24px;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
     border-radius: 50%;
-    margin: 0 auto;
+    flex-shrink: 0;
   }
   .day-date .dow {
-    font-size: 9.5px;
+    font-size: 11px;
     color: var(--muted);
-    margin-top: 1px;
   }
   .day-date .num.sun, .day-date .dow.sun { color: var(--sunday); }
   .day-date .num.sat, .day-date .dow.sat { color: var(--saturday); }
@@ -148,6 +155,12 @@
     gap: 3px;
     padding-top: 2px;
   }
+  /* アイコンごとに幅を揃えて、後ろの時刻表示が縦にきれいに揃うようにする */
+  .icon-fixed {
+    display: inline-block;
+    width: 1.4em;
+    text-align: left;
+  }
   /* 一致(2人以上)のサマリ: イベントバー風の強めのバッジ表示。アイコン行と時刻行で改行する */
   .summary-line {
     font-size: 11.5px;
@@ -160,8 +173,15 @@
     padding: 2px 6px;
     border-radius: 4px;
   }
-  /* 一致していない単独の予定: 控えめな表示でコントラストをつける */
+  /* 一致していない単独の予定: 控えめな表示でコントラストをつける。横幅を活かして2列に並べる */
+  .solo-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+  }
   .summary-line-solo {
+    flex: 1 1 45%;
+    min-width: 100px;
     font-size: 10px;
     line-height: 1.4;
     color: var(--muted);
@@ -346,6 +366,15 @@
   .entry-row.foreign {
     opacity: 0.7;
   }
+  .entry-row .del {
+    border: none;
+    background: transparent;
+    color: var(--danger);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
   .entry-empty {
     font-size: 12.5px;
     color: var(--muted);
@@ -363,10 +392,10 @@
     .sub { font-size: 11.5px; margin-bottom: 8px; }
     .day-row { padding: 5px 2px; gap: 8px; }
     .day-date { width: 34px; }
-    .day-date .num { font-size: 12.5px; width: 20px; height: 20px; line-height: 20px; }
-    .day-date .dow { font-size: 8.5px; }
+    .day-date .num { font-size: 11px; width: 17px; height: 17px; line-height: 17px; }
+    .day-date .dow { font-size: 9.5px; }
     .summary-line { font-size: 9.5px; padding: 1px 4px; }
-    .summary-line-solo { font-size: 8.5px; }
+    .summary-line-solo { font-size: 8.5px; min-width: 80px; }
     .add-link { font-size: 8.5px; }
     .modal { padding: 14px; border-radius: 16px; }
     .picker-row { gap: 6px; }
@@ -397,7 +426,7 @@
         <button class="close-btn" onclick="closeModal()">×</button>
       </div>
 
-      <p class="readonly-notice" id="readonlyNotice" hidden>このURLでは編集できません。自分専用のURL(例: .../ryu)からアクセスすると、自分の時間を登録・編集できます。</p>
+      <p class="readonly-notice" id="readonlyNotice" hidden>このURLでは編集できません。自分専用のURL(例: .../repoyaru/ryu)からアクセスすると、自分の時間を登録・編集できます。</p>
 
       <div id="editorArea">
         <div class="picker-labels">
@@ -539,10 +568,10 @@
     }
     const matched = merged
       .filter(s => s.people.length >= 2)
-      .map(s => `${s.people.join('')}:\n${formatHM(s.start)} ~ ${formatHM(s.end)}`);
+      .map(s => ({ icons: s.people, start: s.start, end: s.end }));
     const solo = merged
       .filter(s => s.people.length === 1)
-      .map(s => `${s.people[0]}: ${formatHM(s.start)} ~ ${formatHM(s.end)}`);
+      .map(s => ({ icon: s.people[0], start: s.start, end: s.end }));
     return { matched, solo };
   }
 
@@ -569,12 +598,12 @@
 
       const dateCol = document.createElement('div');
       dateCol.className = 'day-date';
-      const numEl = document.createElement('div');
+      const numEl = document.createElement('span');
       numEl.className = 'num' + dowClass;
       numEl.textContent = d;
-      const dowEl = document.createElement('div');
+      const dowEl = document.createElement('span');
       dowEl.className = 'dow' + dowClass;
-      dowEl.textContent = WEEKDAY_LABELS[dow];
+      dowEl.textContent = `(${WEEKDAY_LABELS[dow]})`;
       dateCol.appendChild(numEl);
       dateCol.appendChild(dowEl);
       row.appendChild(dateCol);
@@ -584,18 +613,24 @@
 
       const { matched, solo } = computeDaySummaries(schedule[ds]);
       if (matched.length > 0) row.classList.add('has-match');
-      matched.forEach(line => {
+      matched.forEach(seg => {
         const s = document.createElement('div');
         s.className = 'summary-line';
-        s.textContent = line;
+        const icons = seg.icons.map(ic => `<span class="icon-fixed">${ic}</span>`).join('');
+        s.innerHTML = `${icons}:\n${formatHM(seg.start)} ~ ${formatHM(seg.end)}`;
         content.appendChild(s);
       });
-      solo.forEach(line => {
-        const s = document.createElement('div');
-        s.className = 'summary-line-solo';
-        s.textContent = line;
-        content.appendChild(s);
-      });
+      if (solo.length > 0) {
+        const soloWrap = document.createElement('div');
+        soloWrap.className = 'solo-wrap';
+        solo.forEach(seg => {
+          const s = document.createElement('div');
+          s.className = 'summary-line-solo';
+          s.innerHTML = `<span class="icon-fixed">${seg.icon}</span>: ${formatHM(seg.start)} ~ ${formatHM(seg.end)}`;
+          soloWrap.appendChild(s);
+        });
+        content.appendChild(soloWrap);
+      }
       // 何も登録が無い日だけ「時間を登録」を表示(登録済みの日は帯だけで十分なので余白を増やさない)
       if (matched.length === 0 && solo.length === 0) {
         const add = document.createElement('div');
@@ -806,6 +841,20 @@
     closeModal(); // 押したらポップアップを閉じる
   }
 
+  async function deleteEntry(id) {
+    if (!activeDateStr || !schedule[activeDateStr]) return;
+    const entry = schedule[activeDateStr].find(e => e.id === id);
+    if (!entry || entry.person !== CURRENT_USER) return; // 自分の予定だけ削除可能
+    schedule[activeDateStr] = schedule[activeDateStr].filter(e => e.id !== id);
+    if (schedule[activeDateStr].length === 0) delete schedule[activeDateStr];
+    if (editingEntryId === id) {
+      editingEntryId = null;
+      updateAddButtonLabel();
+    }
+    await saveSchedule();
+    renderEntryList();
+  }
+
   function renderEntryList() {
     const list = document.getElementById('entryList');
     list.innerHTML = '';
@@ -822,8 +871,15 @@
       const row = document.createElement('div');
       row.className = 'entry-row' + (e.id === editingEntryId ? ' editing' : '') + (isOwn ? '' : ' foreign');
       const label = document.createElement('span');
-      label.textContent = `${e.person}: ${formatHM(e.startMin)}〜${formatHM(e.endMin)}`;
+      label.innerHTML = `<span class="icon-fixed">${e.person}</span>: ${formatHM(e.startMin)}〜${formatHM(e.endMin)}`;
       row.appendChild(label);
+      if (isOwn) {
+        const del = document.createElement('button');
+        del.className = 'del';
+        del.textContent = '×';
+        del.onclick = (ev) => { ev.stopPropagation(); deleteEntry(e.id); };
+        row.appendChild(del);
+      }
       list.appendChild(row);
     });
   }

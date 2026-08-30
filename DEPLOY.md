@@ -10,23 +10,31 @@ chosesan_kai/            (このフォルダはリポジトリの内容と同期
 ├── app.html              # アプリ本体(旧 schedule-calendar.html)
 └── functions/
     ├── api/
-    │   └── schedule.js               # 共有データの保存・取得API
-    ├── schedule-calendar.js          # /schedule-calendar (裸のパス)用
-    └── schedule-calendar/
-        └── [[path]].js               # /schedule-calendar/xxx (ユーザー別パス)用
+    │   └── schedule.js                    # 共有データの保存・取得API
+    └── chouseisan-kai/
+        ├── repoyaru.js                     # /chouseisan-kai/repoyaru (裸のパス)用
+        └── repoyaru/
+            └── [[path]].js                 # /chouseisan-kai/repoyaru/xxx (ユーザー別パス)用
 ```
 
 ## なぜ `_redirects` を使っていないか
 
 当初 `_redirects` でルーティングしようとしましたが、Cloudflareの静的アセット側の
 自動リダイレクト処理と干渉してうまく機能しませんでした。代わりに **Pages Functions
-のキャッチオールルート**(`functions/schedule-calendar.js` と
-`functions/schedule-calendar/[[path]].js`)で `env.ASSETS.fetch()` を使い、
+のキャッチオールルート**(`functions/chouseisan-kai/repoyaru.js` と
+`functions/chouseisan-kai/repoyaru/[[path]].js`)で `env.ASSETS.fetch()` を使い、
 `app.html` の内容を直接返す方式にしています。
 
 **重要**: `env.ASSETS.fetch()` に渡すパスは拡張子なしの `/app` にしてください。
 `/app.html` を渡すと、Cloudflareが自動で `/app` へ308リダイレクトしてしまい、
 そのリダイレクトがそのままクライアントに返ってしまいます(実際にハマった箇所)。
+
+## URLのパス構造を変える場合
+
+`/chouseisan-kai/repoyaru` の部分を変えたい場合は、`functions/` 以下のフォルダ・
+ファイル名をそのパスと同じ構造にリネームしてください(中身は変更不要、
+`env.ASSETS.fetch()` で常に `/app` を返しているだけなので、どのパスに置いても
+同じ挙動になります)。
 
 ## 反映する手順
 
@@ -38,7 +46,7 @@ chosesan_kai/            (このフォルダはリポジトリの内容と同期
    git push origin main
    ```
 3. push後、Cloudflareが自動でビルド・デプロイ(数十秒程度)
-4. `https://chosesan-kai-1.pages.dev/schedule-calendar` などで確認
+4. `https://chosesan-kai-1.pages.dev/chouseisan-kai/repoyaru` などで確認
 
 ## KVネームスペースのバインディング(設定済み)
 
@@ -50,14 +58,14 @@ chosesan_kai/            (このフォルダはリポジトリの内容と同期
 ## 各人のURL
 
 ```
-https://chosesan-kai-1.pages.dev/schedule-calendar/ryu       → ☕
-https://chosesan-kai-1.pages.dev/schedule-calendar/teketeke  → 👻
-https://chosesan-kai-1.pages.dev/schedule-calendar/koromo    → 衣
-https://chosesan-kai-1.pages.dev/schedule-calendar/sinome    → 🤍
+https://chosesan-kai-1.pages.dev/chouseisan-kai/repoyaru/ryu       → ☕
+https://chosesan-kai-1.pages.dev/chouseisan-kai/repoyaru/teketeke  → 👻
+https://chosesan-kai-1.pages.dev/chouseisan-kai/repoyaru/koromo    → 衣
+https://chosesan-kai-1.pages.dev/chouseisan-kai/repoyaru/sinome    → 🤍
 ```
 
 それぞれのURLでは、その人の時間だけ(1日1件まで)登録・編集・削除ができます。
-他の人の予定は閲覧のみ。名前なしの `/schedule-calendar` は全員分の閲覧専用モード。
+他の人の予定は閲覧のみ。名前なしの `/chouseisan-kai/repoyaru` は全員分の閲覧専用モード。
 
 ## 注意点
 

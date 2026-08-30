@@ -1,5 +1,5 @@
 // Cloudflare Pages Functions のキャッチオールルート。
-// /schedule-calendar/ryu 等、/schedule-calendar/ 配下のどんなパスでも
+// /chouseisan-kai/repoyaru/ryu 等、/chouseisan-kai/repoyaru/ 配下のどんなパスでも
 // リダイレクトせずに app.html の内容をそのまま返す。
 // Cloudflareは「/app.html」のような拡張子付きパスを自動で「/app」へ308リダイレクトするため、
 // env.ASSETS.fetch() には拡張子を外した "/app" を渡す。
