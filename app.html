@@ -943,6 +943,13 @@
     const startMin = startHour * 60 + startMinute;
     const endMin = endHour * 60 + endMinute;
 
+    // 夕方〜翌朝にまたぐような自然な日またぎ(終了が朝9時より前)は許可するが、
+    // 「17〜16」のような極端な時間の逆転は入力ミスとみなして弾く
+    if (endMin <= startMin && endHour >= 9) {
+      alert('時間の指定が逆転しています。開始・終了の時刻を確認してください。');
+      return;
+    }
+
     if (!schedule[activeDateStr]) schedule[activeDateStr] = [];
     const target = (!forceNew && editingEntryId)
       ? schedule[activeDateStr].find(e => e.id === editingEntryId && e.person === CURRENT_USER)
