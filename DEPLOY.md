@@ -1,53 +1,63 @@
-# デプロイ手順 (Cloudflare Pages)
+# デプロイ手順 (Cloudflare Pages + GitHub連携)
 
-このフォルダの中身をそのまま、今使っている Cloudflare Pages プロジェクト
-(`chosesan-kai-1`) にアップロードしてください。
+このプロジェクトは GitHub リポジトリ **ryu0502/chosesan_kai** と Cloudflare Pages
+プロジェクト **chosesan-kai-1** が連携済みです。`main` ブランチに push すると
+自動でビルド・デプロイされます(ダッシュボードでの直接アップロードは廃止しました。
+Pages Functionsが正しく有効化されないため)。
 
 ```
-cloudflare-deploy/
-├── schedule-calendar.html   # アプリ本体
-├── _redirects               # /schedule-calendar/xxx を全部このHTMLに振り向けるルール
+chosesan_kai/            (このフォルダはリポジトリの内容と同期したローカルコピー)
+├── app.html              # アプリ本体(旧 schedule-calendar.html)
 └── functions/
-    └── api/
-        └── schedule.js       # 共有データの保存・取得API (Pages Functions)
+    ├── api/
+    │   └── schedule.js               # 共有データの保存・取得API
+    ├── schedule-calendar.js          # /schedule-calendar (裸のパス)用
+    └── schedule-calendar/
+        └── [[path]].js               # /schedule-calendar/xxx (ユーザー別パス)用
 ```
 
-## 1. KVネームスペースを作成してバインドする(初回だけ)
+## なぜ `_redirects` を使っていないか
 
-1. Cloudflareダッシュボード → **Workers & Pages** → **KV** → **Create namespace**
-   名前は何でも良い(例: `schedule-kv`)。
-2. 対象のPagesプロジェクト(`chosesan-kai-1`) → **Settings** → **Functions**
-   → **KV namespace bindings** → **Add binding**
-   - Variable name: `SCHEDULE_KV` (←コードと完全一致させる)
-   - KV namespace: 上で作った namespace を選択
-3. 保存すると、次回以降のデプロイからこのバインドが有効になります。
+当初 `_redirects` でルーティングしようとしましたが、Cloudflareの静的アセット側の
+自動リダイレクト処理と干渉してうまく機能しませんでした。代わりに **Pages Functions
+のキャッチオールルート**(`functions/schedule-calendar.js` と
+`functions/schedule-calendar/[[path]].js`)で `env.ASSETS.fetch()` を使い、
+`app.html` の内容を直接返す方式にしています。
 
-wrangler CLIでデプロイする場合は `wrangler.toml` に以下を追記してください。
+**重要**: `env.ASSETS.fetch()` に渡すパスは拡張子なしの `/app` にしてください。
+`/app.html` を渡すと、Cloudflareが自動で `/app` へ308リダイレクトしてしまい、
+そのリダイレクトがそのままクライアントに返ってしまいます(実際にハマった箇所)。
 
-```toml
-[[kv_namespaces]]
-binding = "SCHEDULE_KV"
-id = "xxxxxxxx"  # 作成したnamespaceのID
+## 反映する手順
+
+1. `chosesan_kai/` フォルダ内のファイルを編集
+2. ローカルにクローンしてあるリポジトリ(またはこのフォルダ自体)で
+   ```
+   git add -A
+   git commit -m "変更内容"
+   git push origin main
+   ```
+3. push後、Cloudflareが自動でビルド・デプロイ(数十秒程度)
+4. `https://chosesan-kai-1.pages.dev/schedule-calendar` などで確認
+
+## KVネームスペースのバインディング(設定済み)
+
+`/api/schedule` が使う共有データストレージです。Cloudflareダッシュボード →
+`chosesan-kai-1` プロジェクト → Settings → Functions → KV namespace bindings
+で `SCHEDULE_KV` という変数名でバインド済みです。再作成する場合は同じ変数名にして
+ください(コード内の `env.SCHEDULE_KV` と一致させる必要があります)。
+
+## 各人のURL
+
+```
+https://chosesan-kai-1.pages.dev/schedule-calendar/ryu       → ☕
+https://chosesan-kai-1.pages.dev/schedule-calendar/teketeke  → 👻
+https://chosesan-kai-1.pages.dev/schedule-calendar/koromo    → 衣
+https://chosesan-kai-1.pages.dev/schedule-calendar/sinome    → 🤍
 ```
 
-## 2. アップロード
-
-いつもの方法(ダッシュボードのドラッグ&ドロップ、または連携しているGitリポジトリへのpush、
-または `wrangler pages deploy` )で、このフォルダの中身をそのままデプロイしてください。
-`_redirects` と `functions/` はプロジェクトのルート直下に置く必要があります。
-
-## 3. 各人のURL
-
-```
-https://8760fc25.chosesan-kai-1.pages.dev/schedule-calendar/ryu       → ☕
-https://8760fc25.chosesan-kai-1.pages.dev/schedule-calendar/sinome    → 👻
-https://8760fc25.chosesan-kai-1.pages.dev/schedule-calendar/koromo   → 衣
-https://8760fc25.chosesan-kai-1.pages.dev/schedule-calendar/teketeke → 🤍
-```
-
-それぞれのURLでは、その人の時間だけ追加・編集・削除ができます。他の人の予定は
-閲覧のみ(削除・編集ボタンは出ません)。`/schedule-calendar` (末尾に名前が付いていない)
-で開いた場合は、全員分を見られる閲覧専用モードになります。
+それぞれのURLでは、その人の時間だけ(1日1件まで)登録・編集・削除ができます。
+他の人の予定は閲覧のみ。名前なしの `/schedule-calendar` は全員分の閲覧専用モード。
 
 ## 注意点
 
@@ -56,6 +66,5 @@ https://8760fc25.chosesan-kai-1.pages.dev/schedule-calendar/teketeke → 🤍
   上書きする可能性があります(4人程度の少人数利用なら実用上問題ない想定)。
 - 本格的な認証は入れていません。URLを知っていれば誰でもそのURLの人として
   編集できてしまうため、URLは友人内だけで共有してください。
-- ローカルで `schedule-calendar.html` を直接ダブルクリックして開いても
-  `/api/schedule` に届かずデータの保存・共有はできません。動作確認は
-  デプロイ後(または `wrangler pages dev` )に行ってください。
+- ローカルで `app.html` を直接ダブルクリックして開いても `/api/schedule` に
+  届かずデータの保存・共有はできません。動作確認はデプロイ後に行ってください。
