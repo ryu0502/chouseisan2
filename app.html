@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>調整さん改</title>
+<title>調整さん2</title>
 <style>
   /* Chromeのダークモード風の配色に固定(OS/ブラウザの設定に関わらず常にこの配色) */
   :root {
@@ -53,10 +53,15 @@
     font-weight: 700;
     margin: 0;
   }
+  /* タイトルの文字列と続けて読めてしまわないよう、月ラベル+ボタンをひとまとまりの部品として見せる */
   .header-right {
     display: flex;
     align-items: center;
     gap: 10px;
+    background: var(--key);
+    border-radius: 999px;
+    padding: 4px 6px 4px 16px;
+    margin-left: 16px;
   }
   .month-label {
     font-size: 28px;
@@ -78,16 +83,17 @@
     font-size: 26px;
     cursor: pointer;
   }
-  .nav-btn:hover { background: var(--key); }
-  /* ログイン中の表示は左寄せのシンプルなテキストにして、その分タイトルを目立たせる */
+  .nav-btn:hover { background: var(--key-hover); }
+  /* ログイン中の人が一目でわかるよう、はっきりした色と太字で目立たせる */
   .user-badge {
     display: block;
-    font-size: 12.5px;
-    color: var(--muted);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
     text-align: left;
     margin: 4px 0 10px;
   }
-  .user-badge .icon { font-size: 15px; }
+  .user-badge .icon { font-size: 18px; }
   .user-badge.readonly { color: var(--danger); }
   .sub {
     font-size: 13px;
@@ -428,7 +434,7 @@
 <body>
   <div class="app">
     <div class="app-header">
-      <h1 class="app-title">調整さん改</h1>
+      <h1 class="app-title">調整さん2</h1>
       <div class="header-right">
         <span id="monthLabel" class="month-label"></span>
         <div class="nav-group">
@@ -784,6 +790,36 @@
   // ---------- モーダル ----------
   let editingEntryId = null;
 
+  // 日またぎを考慮して時間帯の重なりを判定する
+  function normalizeRange(start, end) {
+    let e = end;
+    if (e <= start) e += 24 * 60;
+    return [start, e];
+  }
+  function rangesOverlap(aStart, aEnd, bStart, bEnd) {
+    const [as, ae] = normalizeRange(aStart, aEnd);
+    const [bs, be] = normalizeRange(bStart, bEnd);
+    return as < be && bs < ae;
+  }
+
+  // ホイールに指定の予定の時刻をセットする(自動編集モード/一覧からの選択で共通利用)
+  function loadEntryIntoWheels(entry) {
+    wheels.startHour.setIndex(Math.floor(entry.startMin / 60) % 24);
+    wheels.startMinute.setIndex(Math.max(0, MINUTES.indexOf(entry.startMin % 60)));
+    wheels.endHour.setIndex(Math.floor(entry.endMin / 60) % 24);
+    wheels.endMinute.setIndex(Math.max(0, MINUTES.indexOf(entry.endMin % 60)));
+  }
+
+  // 一覧で自分の予定をクリックした時、その予定を編集対象として選択する
+  function selectEntryForEdit(id) {
+    const entry = (schedule[activeDateStr] || []).find(e => e.id === id && e.person === CURRENT_USER);
+    if (!entry) return;
+    editingEntryId = id;
+    loadEntryIntoWheels(entry);
+    updateAddButtonLabel();
+    renderEntryList();
+  }
+
   async function openModal(ds) {
     activeDateStr = ds;
     editingEntryId = null;
@@ -804,10 +840,7 @@
       const existing = (schedule[activeDateStr] || []).find(e => e.person === CURRENT_USER);
       if (existing) {
         editingEntryId = existing.id;
-        wheels.startHour.setIndex(Math.floor(existing.startMin / 60) % 24);
-        wheels.startMinute.setIndex(Math.max(0, MINUTES.indexOf(existing.startMin % 60)));
-        wheels.endHour.setIndex(Math.floor(existing.endMin / 60) % 24);
-        wheels.endMinute.setIndex(Math.max(0, MINUTES.indexOf(existing.endMin % 60)));
+        loadEntryIntoWheels(existing);
       }
       updateAddButtonLabel();
     } else {
@@ -850,6 +883,14 @@
       target.startMin = startMin;
       target.endMin = endMin;
     } else {
+      // 新規追加の時は、既に登録済みの自分の予定と時間が重なっていないか確認する
+      const conflict = schedule[activeDateStr].some(e =>
+        e.person === CURRENT_USER && rangesOverlap(startMin, endMin, e.startMin, e.endMin)
+      );
+      if (conflict) {
+        alert('その時間は既に登録済みの予定と重なっています。時間を確認してください。');
+        return;
+      }
       schedule[activeDateStr].push({
         id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
         person: CURRENT_USER,
@@ -895,6 +936,8 @@
       label.innerHTML = `<span class="icon-fixed">${e.person}</span>: ${formatHM(e.startMin)}〜${formatHM(e.endMin)}`;
       row.appendChild(label);
       if (isOwn) {
+        row.style.cursor = 'pointer';
+        row.onclick = () => selectEntryForEdit(e.id);
         const del = document.createElement('button');
         del.className = 'del';
         del.textContent = '×';
