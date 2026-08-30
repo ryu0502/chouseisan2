@@ -175,13 +175,16 @@
     font-size: 15px;
     line-height: 1.4;
     color: var(--bg);
-    background: var(--accent);
     font-weight: 700;
     white-space: pre-line;
     overflow-wrap: break-word;
     padding: 2px 6px;
     border-radius: 4px;
   }
+  /* 一致人数が多いほど青が濃くなる段階表示(4人が現行のaccentよりやや濃い色、他は薄く) */
+  .summary-line.tier-2 { background: #d3e3fd; }
+  .summary-line.tier-3 { background: #a7c6fa; }
+  .summary-line.tier-4 { background: #6fa1f5; }
   /* 一致していない単独の予定: 控えめな表示でコントラストをつける。横幅を活かして2列に並べる */
   .solo-wrap {
     display: flex;
@@ -198,12 +201,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .add-link {
-    font-size: 10.5px;
-    color: var(--muted);
-  }
-  .day-row:hover .add-link { color: var(--accent); }
-
   /* ---- モーダル ---- */
   .overlay {
     position: fixed;
@@ -353,6 +350,22 @@
   .add-entry-btn:hover { background: var(--accent-hover); }
   .add-entry-btn:active { transform: scale(0.98); }
 
+  .add-separate-btn {
+    display: block;
+    width: 100%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--accent);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 10px 0;
+    border-radius: 12px;
+    cursor: pointer;
+    margin: -8px 0 16px;
+  }
+  .add-separate-btn:hover { background: var(--key); }
+  .add-separate-btn:active { transform: scale(0.98); }
+
   .entry-list-title {
     font-size: 12px;
     color: var(--muted);
@@ -406,7 +419,6 @@
     .day-date .dow { font-size: 9.5px; }
     .summary-line { font-size: 12.5px; padding: 1px 4px; }
     .summary-line-solo { font-size: 8.5px; min-width: 80px; }
-    .add-link { font-size: 8.5px; }
     .modal { padding: 14px; border-radius: 16px; }
     .picker-row { gap: 6px; }
     .picker-labels { gap: 6px; font-size: 9.5px; }
@@ -428,7 +440,7 @@
       </div>
     </div>
     <div id="userBadge" class="user-badge"></div>
-    <p class="sub">各日付に`時間を登録`をタップして時間を追加してください。<br>2人以上の時間が重なるとハイライトされます。</p>
+    <p class="sub">各日付をタップして時間を追加してください。<br>2人以上の時間が重なるとハイライトされます。</p>
     <div class="schedule-list" id="scheduleList"></div>
   </div>
 
@@ -461,7 +473,8 @@
           <div class="wheel-wrap" id="wheelEndMinute"></div>
         </div>
 
-        <button class="add-entry-btn" id="addEntryBtn" onclick="addEntry()">時間を登録</button>
+        <button class="add-entry-btn" id="addEntryBtn" onclick="submitEntry(false)">時間を登録</button>
+        <button class="add-separate-btn" id="addSeparateBtn" onclick="submitEntry(true)" hidden>別で時間を登録</button>
       </div>
 
       <p class="entry-list-title">この日に登録された時間</p>
@@ -629,7 +642,7 @@
       if (matched.length > 0) row.classList.add('has-match');
       matched.forEach(seg => {
         const s = document.createElement('div');
-        s.className = 'summary-line';
+        s.className = 'summary-line tier-' + Math.min(seg.icons.length, 4);
         const icons = seg.icons.map(ic => `<span class="icon-fixed">${ic}</span>`).join('');
         s.innerHTML = `${icons}:\n${formatHM(seg.start)} ~ ${formatHM(seg.end)}`;
         content.appendChild(s);
@@ -645,14 +658,6 @@
         });
         content.appendChild(soloWrap);
       }
-      // 何も登録が無い日だけ「時間を登録」を表示(登録済みの日は帯だけで十分なので余白を増やさない)
-      if (matched.length === 0 && solo.length === 0) {
-        const add = document.createElement('div');
-        add.className = 'add-link';
-        add.textContent = '時間を登録';
-        content.appendChild(add);
-      }
-
       row.appendChild(content);
       list.appendChild(row);
     }
@@ -796,7 +801,7 @@
       editorArea.hidden = false;
       notice.hidden = true;
       initWheels();
-      // 1日1件までのルール: 自分の予定が既にあれば、最初から編集モードで開く
+      // 自分の予定が既にあれば、最初から編集モードで開く(別途「別で時間を登録」で複数登録も可能)
       const existing = (schedule[activeDateStr] || []).find(e => e.person === CURRENT_USER);
       if (existing) {
         editingEntryId = existing.id;
@@ -822,9 +827,13 @@
 
   function updateAddButtonLabel() {
     document.getElementById('addEntryBtn').textContent = editingEntryId ? '更新する' : '時間を登録';
+    // 既存の予定を編集中の時だけ、別枠での新規登録ボタンを出す
+    document.getElementById('addSeparateBtn').hidden = !editingEntryId;
   }
 
-  async function addEntry() {
+  // forceNew=false: 編集中の予定があればそれを上書き、無ければ新規追加(通常の登録・更新ボタン)
+  // forceNew=true : 編集中の予定があっても上書きせず、必ず新規の別予定として追加(「別で時間を登録」ボタン)
+  async function submitEntry(forceNew) {
     if (!activeDateStr || !CURRENT_USER) return;
     const startHour = HOURS[wheels.startHour.getIndex()];
     const startMinute = MINUTES[wheels.startMinute.getIndex()];
@@ -834,10 +843,9 @@
     const endMin = endHour * 60 + endMinute;
 
     if (!schedule[activeDateStr]) schedule[activeDateStr] = [];
-    // 1日1件までのルール: 既存の自分の予定があれば上書き、無ければ新規追加
-    const target = editingEntryId
+    const target = (!forceNew && editingEntryId)
       ? schedule[activeDateStr].find(e => e.id === editingEntryId && e.person === CURRENT_USER)
-      : schedule[activeDateStr].find(e => e.person === CURRENT_USER);
+      : null;
 
     if (target) {
       target.startMin = startMin;
