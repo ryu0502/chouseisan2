@@ -590,7 +590,7 @@
   const END_OF_DAY_MIN = 24 * 60;      // 24:00
   const LATE_MIN = 48 * 60;            // 「夜更かし」を表す終了時刻(旧データの翌朝までの時刻より必ず後ろになる値)
   const LATE_LABEL = '夜更かし';
-  const ALL_DAY_LABEL = '1日中暇';     // 1日中暇 = 5:00〜24:00 として重なりを計算する
+  const ALL_DAY_LABEL = '1日中暇だよ🏖️';     // 1日中暇 = 5:00〜24:00 として重なりを計算する
   const ALL_DAY_START_MIN = DAY_START_HOUR * 60;
   const START_HOURS = Array.from({ length: 24 - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i);      // 5〜23時
   const END_HOURS = [...Array.from({ length: 25 - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i), 'late']; // 5〜24時, 夜更かし
