@@ -716,9 +716,17 @@
     const matched = merged
       .filter(s => s.people.length >= 2)
       .map(s => ({ icons: s.people, start: s.start, end: s.end }));
-    const solo = merged
-      .filter(s => s.people.length === 1)
-      .map(s => ({ icon: s.people[0], start: s.start, end: s.end }));
+    // 1日中暇の人は、誰とも一致していない時間を細切れの時刻で出さず「1日中暇だよ🏖️」1行にまとめる
+    const allDayPeople = new Set(entries.filter(isAllDayEntry).map(e => e.person));
+    const solo = [];
+    for (const s of merged.filter(s => s.people.length === 1)) {
+      const icon = s.people[0];
+      if (!allDayPeople.has(icon)) {
+        solo.push({ icon, start: s.start, end: s.end });
+      } else if (!solo.some(x => x.icon === icon && x.allDay)) {
+        solo.push({ icon, allDay: true });
+      }
+    }
     return { matched, solo };
   }
 
@@ -777,7 +785,7 @@
         solo.forEach(seg => {
           const s = document.createElement('div');
           s.className = 'summary-line-solo';
-          s.innerHTML = `<span class="icon-fixed">${seg.icon}</span> ${formatRange(seg.start, seg.end, ' ~ ')}`;
+          s.innerHTML = `<span class="icon-fixed">${seg.icon}</span> ${seg.allDay ? ALL_DAY_LABEL : formatRange(seg.start, seg.end, ' ~ ')}`;
           soloWrap.appendChild(s);
         });
         content.appendChild(soloWrap);
