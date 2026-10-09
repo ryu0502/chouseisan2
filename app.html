@@ -391,6 +391,7 @@
     color: var(--text);
     font-weight: 700;
   }
+  .wheel-item.long { font-size: 12px; letter-spacing: -0.5px; } /* 「夜更かし」など長いラベル用 */
 
   .add-entry-btn {
     display: block;
@@ -492,6 +493,7 @@
     .picker-labels { gap: 6px; font-size: 9.5px; }
     .sep { font-size: 12px; }
     .wheel-item { font-size: 14px; }
+    .wheel-item.long { font-size: 11px; }
   }
 </style>
 </head>
@@ -564,7 +566,13 @@
   const CURRENT_USER_NAME = detectCurrentUser();          // 例: 'ryu'
   const CURRENT_USER = CURRENT_USER_NAME ? USER_MAP[CURRENT_USER_NAME] : null; // 例: '☕'
 
-  const HOURS = Array.from({ length: 24 }, (_, i) => i);  // 0〜23時(23の次は0にループ)
+  // 1日に入力できるのは 5:00〜24:00、または「夜更かし」(24時以降も起きている)
+  const DAY_START_HOUR = 5;
+  const END_OF_DAY_MIN = 24 * 60;      // 24:00
+  const LATE_MIN = 48 * 60;            // 「夜更かし」を表す終了時刻(旧データの翌朝までの時刻より必ず後ろになる値)
+  const LATE_LABEL = '夜更かし';
+  const START_HOURS = Array.from({ length: 24 - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i);      // 5〜23時
+  const END_HOURS = [...Array.from({ length: 25 - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i), 'late']; // 5〜24時, 夜更かし
   const MINUTES = [0, 15, 30, 45];
   const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -612,6 +620,13 @@
     const h = Math.floor(totalMin / 60);
     const m = totalMin % 60;
     return `${h}:${pad2(m)}`;
+  }
+  // 表示用の時刻。夜更かし→「夜更かし」、24:00→「24:00」、それ以外は0〜23時表記
+  // (旧データの日またぎは内部で24時以降になるため % 1440 で戻す)
+  function formatTime(totalMin) {
+    if (totalMin >= LATE_MIN) return LATE_LABEL;
+    if (totalMin === END_OF_DAY_MIN) return '24:00';
+    return formatHM(totalMin % 1440);
   }
 
   function renderUserBadge() {
@@ -670,13 +685,13 @@
         merged.push({ key, people: seg.people, start: seg.start, end: seg.end });
       }
     }
-    // 表示は常に0〜23時表記に揃える(日またぎの内部計算では24時以降になり得るため% 1440で戻す)
+    // 時刻は内部値のまま返し、表示時に formatTime() で整形する
     const matched = merged
       .filter(s => s.people.length >= 2)
-      .map(s => ({ icons: s.people, start: s.start % 1440, end: s.end % 1440 }));
+      .map(s => ({ icons: s.people, start: s.start, end: s.end }));
     const solo = merged
       .filter(s => s.people.length === 1)
-      .map(s => ({ icon: s.people[0], start: s.start % 1440, end: s.end % 1440 }));
+      .map(s => ({ icon: s.people[0], start: s.start, end: s.end }));
     return { matched, solo };
   }
 
@@ -726,7 +741,7 @@
         const s = document.createElement('div');
         s.className = 'summary-line tier-' + Math.min(seg.icons.length, 4);
         const icons = seg.icons.map(ic => `<span class="icon-fixed">${ic}</span>`).join('');
-        s.innerHTML = `${icons}\n${formatHM(seg.start)} ~ ${formatHM(seg.end)}`;
+        s.innerHTML = `${icons}\n${formatTime(seg.start)} ~ ${formatTime(seg.end)}`;
         content.appendChild(s);
       });
       if (solo.length > 0) {
@@ -735,7 +750,7 @@
         solo.forEach(seg => {
           const s = document.createElement('div');
           s.className = 'summary-line-solo';
-          s.innerHTML = `<span class="icon-fixed">${seg.icon}</span> ${formatHM(seg.start)} ~ ${formatHM(seg.end)}`;
+          s.innerHTML = `<span class="icon-fixed">${seg.icon}</span> ${formatTime(seg.start)} ~ ${formatTime(seg.end)}`;
           soloWrap.appendChild(s);
         });
         content.appendChild(soloWrap);
@@ -766,7 +781,7 @@
     for (let c = 0; c < REPEAT; c++) {
       items.forEach((label) => {
         const item = document.createElement('div');
-        item.className = 'wheel-item';
+        item.className = 'wheel-item' + (label.length > 2 ? ' long' : '');
         item.textContent = label;
         viewport.appendChild(item);
       });
@@ -858,12 +873,13 @@
 
   let wheels = {};
   const DEFAULT_START_HOUR = 18;
-  const DEFAULT_END_HOUR = 0;
+  const DEFAULT_END_HOUR = 24;
 
   function initWheels() {
-    wheels.startHour = buildWheel(document.getElementById('wheelStartHour'), HOURS.map(String), DEFAULT_START_HOUR, () => {}, { loop: true });
+    const endLabels = END_HOURS.map(h => h === 'late' ? LATE_LABEL : String(h));
+    wheels.startHour = buildWheel(document.getElementById('wheelStartHour'), START_HOURS.map(String), START_HOURS.indexOf(DEFAULT_START_HOUR), () => {}, { loop: true });
     wheels.startMinute = buildWheel(document.getElementById('wheelStartMinute'), MINUTES.map(m => pad2(m)), 0, () => {}, { loop: true });
-    wheels.endHour = buildWheel(document.getElementById('wheelEndHour'), HOURS.map(String), DEFAULT_END_HOUR, () => {}, { loop: true });
+    wheels.endHour = buildWheel(document.getElementById('wheelEndHour'), endLabels, END_HOURS.indexOf(DEFAULT_END_HOUR), () => {}, { loop: true });
     wheels.endMinute = buildWheel(document.getElementById('wheelEndMinute'), MINUTES.map(m => pad2(m)), 0, () => {}, { loop: true });
   }
 
@@ -883,11 +899,22 @@
   }
 
   // ホイールに指定の予定の時刻をセットする(自動編集モード/一覧からの選択で共通利用)
+  // (旧ルールで登録された 5時前開始・日またぎの予定も、新ルールで選べる一番近い値に寄せて表示する)
   function loadEntryIntoWheels(entry) {
-    wheels.startHour.setIndex(Math.floor(entry.startMin / 60) % 24);
-    wheels.startMinute.setIndex(Math.max(0, MINUTES.indexOf(entry.startMin % 60)));
-    wheels.endHour.setIndex(Math.floor(entry.endMin / 60) % 24);
-    wheels.endMinute.setIndex(Math.max(0, MINUTES.indexOf(entry.endMin % 60)));
+    const startHour = Math.max(DAY_START_HOUR, Math.floor(entry.startMin / 60));
+    wheels.startHour.setIndex(START_HOURS.indexOf(Math.min(23, startHour)));
+    wheels.startMinute.setIndex(startHour === Math.floor(entry.startMin / 60) ? Math.max(0, MINUTES.indexOf(entry.startMin % 60)) : 0);
+
+    let endHour, endMinute = entry.endMin % 60;
+    if (entry.endMin >= LATE_MIN || entry.endMin <= entry.startMin) {
+      endHour = 'late'; endMinute = 0;          // 夜更かし、または旧データの日またぎ
+    } else if (entry.endMin >= END_OF_DAY_MIN) {
+      endHour = 24; endMinute = 0;
+    } else {
+      endHour = Math.max(DAY_START_HOUR, Math.floor(entry.endMin / 60));
+    }
+    wheels.endHour.setIndex(END_HOURS.indexOf(endHour));
+    wheels.endMinute.setIndex(Math.max(0, MINUTES.indexOf(endMinute)));
   }
 
   // 一覧で自分の予定をクリックした時、その予定を編集対象として選択する
@@ -949,17 +976,19 @@
   // forceNew=true : 編集中の予定があっても上書きせず、必ず新規の別予定として追加(「別で時間を登録」ボタン)
   async function submitEntry(forceNew) {
     if (!activeDateStr || !CURRENT_USER) return;
-    const startHour = HOURS[wheels.startHour.getIndex()];
+    const startHour = START_HOURS[wheels.startHour.getIndex()];
     const startMinute = MINUTES[wheels.startMinute.getIndex()];
-    const endHour = HOURS[wheels.endHour.getIndex()];
+    const endHour = END_HOURS[wheels.endHour.getIndex()];
     const endMinute = MINUTES[wheels.endMinute.getIndex()];
     const startMin = startHour * 60 + startMinute;
-    const endMin = endHour * 60 + endMinute;
+    // 終了が 24時 / 夜更かし の時は分を無視する
+    const endMin = endHour === 'late' ? LATE_MIN
+      : endHour === 24 ? END_OF_DAY_MIN
+      : endHour * 60 + endMinute;
 
-    // 夕方〜翌朝にまたぐような自然な日またぎ(終了が朝9時より前)は許可するが、
-    // 「17〜16」のような極端な時間の逆転は入力ミスとみなして弾く
-    if (endMin <= startMin && endHour >= 9) {
-      alert('時間の指定が逆転しています。開始・終了の時刻を確認してください。');
+    // 日またぎは「夜更かし」で表すので、終了は必ず開始より後
+    if (endMin <= startMin) {
+      alert('終了時刻が開始時刻より前になっています。開始・終了の時刻を確認してください。');
       return;
     }
 
@@ -1030,7 +1059,7 @@
       const row = document.createElement('div');
       row.className = 'entry-row' + (e.id === editingEntryId ? ' editing' : '') + (isOwn ? '' : ' foreign');
       const label = document.createElement('span');
-      label.innerHTML = `<span class="icon-fixed">${e.person}</span> ${formatHM(e.startMin)}〜${formatHM(e.endMin)}`;
+      label.innerHTML = `<span class="icon-fixed">${e.person}</span> ${formatTime(e.startMin)}〜${formatTime(e.endMin)}`;
       row.appendChild(label);
       if (isOwn) {
         row.style.cursor = 'pointer';
