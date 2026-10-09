@@ -590,8 +590,9 @@
   const END_OF_DAY_MIN = 24 * 60;      // 24:00
   const LATE_MIN = 48 * 60;            // 「夜更かし」を表す終了時刻(旧データの翌朝までの時刻より必ず後ろになる値)
   const LATE_LABEL = '夜更かし';
-  const ALL_DAY_LABEL = '1日中暇だよ🏖️';     // 1日中暇 = 5:00〜24:00 として重なりを計算する
+  const ALL_DAY_LABEL = '1日中暇だよ🏖️';     // 1日中暇 = 5:00〜夜更かし として重なりを計算する
   const ALL_DAY_START_MIN = DAY_START_HOUR * 60;
+  const ALL_DAY_END_MIN = LATE_MIN;
   const START_HOURS = Array.from({ length: 24 - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i);      // 5〜23時
   const END_HOURS = [...Array.from({ length: 25 - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i), 'late']; // 5〜24時, 夜更かし
   const MINUTES = [0, 15, 30, 45];
@@ -649,9 +650,9 @@
     if (totalMin === END_OF_DAY_MIN) return '24:00';
     return formatHM(totalMin % 1440);
   }
-  // 時間帯の表示。5:00〜24:00 (=1日中暇) は「1日中暇」とだけ表示する
+  // 時間帯の表示。5:00〜夜更かし (=1日中暇) は「1日中暇だよ🏖️」とだけ表示する
   function formatRange(start, end, sep) {
-    if (start === ALL_DAY_START_MIN && end === END_OF_DAY_MIN) return ALL_DAY_LABEL;
+    if (start === ALL_DAY_START_MIN && end === ALL_DAY_END_MIN) return ALL_DAY_LABEL;
     return `${formatTime(start)}${sep}${formatTime(end)}`;
   }
 
@@ -931,7 +932,7 @@
     document.querySelector('.picker-labels').classList.toggle('disabled', on);
   }
   function isAllDayEntry(e) {
-    return e.startMin === ALL_DAY_START_MIN && e.endMin === END_OF_DAY_MIN;
+    return e.startMin === ALL_DAY_START_MIN && e.endMin === ALL_DAY_END_MIN;
   }
 
   // ---------- モーダル ----------
@@ -1046,9 +1047,9 @@
     const startMinute = MINUTES[wheels.startMinute.getIndex()];
     const endHour = END_HOURS[wheels.endHour.getIndex()];
     const endMinute = endHour === 'late' ? 0 : MINUTES[wheels.endMinute.getIndex()];
-    // 1日中暇は 5:00〜24:00。終了が 24時 / 夜更かし の時は分を無視する
+    // 1日中暇は 5:00〜夜更かし。終了が 24時 / 夜更かし の時は分を無視する
     const startMin = allDay ? ALL_DAY_START_MIN : startHour * 60 + startMinute;
-    const endMin = allDay ? END_OF_DAY_MIN
+    const endMin = allDay ? ALL_DAY_END_MIN
       : endHour === 'late' ? LATE_MIN
       : endHour === 24 ? END_OF_DAY_MIN
       : endHour * 60 + endMinute;
