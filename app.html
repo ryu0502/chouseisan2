@@ -424,6 +424,24 @@
   }
   .add-separate-btn:hover { background: var(--key); }
   .add-separate-btn:active { transform: scale(0.98); }
+  .add-separate-btn[hidden] { display: none; } /* display:block より hidden を優先させる */
+
+  /* 「1日中暇」チェックボックス(時間を登録ボタンの上) */
+  .allday-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 0 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+  }
+  .allday-row input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+  /* 1日中暇の時は時刻ホイールを操作できないようにする */
+  .picker-row.disabled, .picker-labels.disabled { opacity: 0.3; pointer-events: none; }
 
   .entry-list-title {
     font-size: 12px;
@@ -544,6 +562,7 @@
           <div class="wheel-wrap" id="wheelEndMinute"></div>
         </div>
 
+        <label class="allday-row"><input type="checkbox" id="allDayCheck" onchange="applyAllDayState()">1日中暇</label>
         <button class="add-entry-btn" id="addEntryBtn" onclick="submitEntry(false)">時間を登録</button>
         <button class="add-separate-btn" id="addSeparateBtn" onclick="submitEntry(true)" hidden>別で時間を登録</button>
       </div>
@@ -571,6 +590,8 @@
   const END_OF_DAY_MIN = 24 * 60;      // 24:00
   const LATE_MIN = 48 * 60;            // 「夜更かし」を表す終了時刻(旧データの翌朝までの時刻より必ず後ろになる値)
   const LATE_LABEL = '夜更かし';
+  const ALL_DAY_LABEL = '1日中暇';     // 1日中暇 = 5:00〜24:00 として重なりを計算する
+  const ALL_DAY_START_MIN = DAY_START_HOUR * 60;
   const START_HOURS = Array.from({ length: 24 - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i);      // 5〜23時
   const END_HOURS = [...Array.from({ length: 25 - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i), 'late']; // 5〜24時, 夜更かし
   const MINUTES = [0, 15, 30, 45];
@@ -627,6 +648,11 @@
     if (totalMin >= LATE_MIN) return LATE_LABEL;
     if (totalMin === END_OF_DAY_MIN) return '24:00';
     return formatHM(totalMin % 1440);
+  }
+  // 時間帯の表示。5:00〜24:00 (=1日中暇) は「1日中暇」とだけ表示する
+  function formatRange(start, end, sep) {
+    if (start === ALL_DAY_START_MIN && end === END_OF_DAY_MIN) return ALL_DAY_LABEL;
+    return `${formatTime(start)}${sep}${formatTime(end)}`;
   }
 
   function renderUserBadge() {
@@ -741,7 +767,7 @@
         const s = document.createElement('div');
         s.className = 'summary-line tier-' + Math.min(seg.icons.length, 4);
         const icons = seg.icons.map(ic => `<span class="icon-fixed">${ic}</span>`).join('');
-        s.innerHTML = `${icons}\n${formatTime(seg.start)} ~ ${formatTime(seg.end)}`;
+        s.innerHTML = `${icons}\n${formatRange(seg.start, seg.end, ' ~ ')}`;
         content.appendChild(s);
       });
       if (solo.length > 0) {
@@ -750,7 +776,7 @@
         solo.forEach(seg => {
           const s = document.createElement('div');
           s.className = 'summary-line-solo';
-          s.innerHTML = `<span class="icon-fixed">${seg.icon}</span> ${formatTime(seg.start)} ~ ${formatTime(seg.end)}`;
+          s.innerHTML = `<span class="icon-fixed">${seg.icon}</span> ${formatRange(seg.start, seg.end, ' ~ ')}`;
           soloWrap.appendChild(s);
         });
         content.appendChild(soloWrap);
@@ -879,8 +905,33 @@
     const endLabels = END_HOURS.map(h => h === 'late' ? LATE_LABEL : String(h));
     wheels.startHour = buildWheel(document.getElementById('wheelStartHour'), START_HOURS.map(String), START_HOURS.indexOf(DEFAULT_START_HOUR), () => {}, { loop: true });
     wheels.startMinute = buildWheel(document.getElementById('wheelStartMinute'), MINUTES.map(m => pad2(m)), 0, () => {}, { loop: true });
-    wheels.endHour = buildWheel(document.getElementById('wheelEndHour'), endLabels, END_HOURS.indexOf(DEFAULT_END_HOUR), () => {}, { loop: true });
-    wheels.endMinute = buildWheel(document.getElementById('wheelEndMinute'), MINUTES.map(m => pad2(m)), 0, () => {}, { loop: true });
+    wheels.endHour = buildWheel(document.getElementById('wheelEndHour'), endLabels, END_HOURS.indexOf(DEFAULT_END_HOUR), syncEndMinuteWheel, { loop: true });
+    endMinuteIsLate = null;
+    syncEndMinuteWheel();
+    document.getElementById('allDayCheck').checked = false;
+    applyAllDayState();
+  }
+
+  // 終了の「時」が夜更かしの間は、終了の「分」を「-」だけにする(分の指定に意味が無いため)
+  let endMinuteIsLate = null;
+  function syncEndMinuteWheel() {
+    const late = END_HOURS[wheels.endHour.getIndex()] === 'late';
+    if (late === endMinuteIsLate) return;
+    endMinuteIsLate = late;
+    const el = document.getElementById('wheelEndMinute');
+    wheels.endMinute = late
+      ? buildWheel(el, ['-'], 0, () => {}, { loop: false })
+      : buildWheel(el, MINUTES.map(m => pad2(m)), 0, () => {}, { loop: true });
+  }
+
+  // 「1日中暇」がオンの時は時刻ホイールを無効表示にする
+  function applyAllDayState() {
+    const on = document.getElementById('allDayCheck').checked;
+    document.querySelector('.picker-row').classList.toggle('disabled', on);
+    document.querySelector('.picker-labels').classList.toggle('disabled', on);
+  }
+  function isAllDayEntry(e) {
+    return e.startMin === ALL_DAY_START_MIN && e.endMin === END_OF_DAY_MIN;
   }
 
   // ---------- モーダル ----------
@@ -901,6 +952,19 @@
   // ホイールに指定の予定の時刻をセットする(自動編集モード/一覧からの選択で共通利用)
   // (旧ルールで登録された 5時前開始・日またぎの予定も、新ルールで選べる一番近い値に寄せて表示する)
   function loadEntryIntoWheels(entry) {
+    // 1日中暇の予定はチェックボックスだけオンにして、ホイールは既定値に戻す
+    const allDay = isAllDayEntry(entry);
+    document.getElementById('allDayCheck').checked = allDay;
+    applyAllDayState();
+    if (allDay) {
+      wheels.startHour.setIndex(START_HOURS.indexOf(DEFAULT_START_HOUR));
+      wheels.startMinute.setIndex(0);
+      wheels.endHour.setIndex(END_HOURS.indexOf(DEFAULT_END_HOUR));
+      syncEndMinuteWheel();
+      wheels.endMinute.setIndex(0);
+      return;
+    }
+
     const startHour = Math.max(DAY_START_HOUR, Math.floor(entry.startMin / 60));
     wheels.startHour.setIndex(START_HOURS.indexOf(Math.min(23, startHour)));
     wheels.startMinute.setIndex(startHour === Math.floor(entry.startMin / 60) ? Math.max(0, MINUTES.indexOf(entry.startMin % 60)) : 0);
@@ -914,7 +978,8 @@
       endHour = Math.max(DAY_START_HOUR, Math.floor(entry.endMin / 60));
     }
     wheels.endHour.setIndex(END_HOURS.indexOf(endHour));
-    wheels.endMinute.setIndex(Math.max(0, MINUTES.indexOf(endMinute)));
+    syncEndMinuteWheel();
+    wheels.endMinute.setIndex(endHour === 'late' ? 0 : Math.max(0, MINUTES.indexOf(endMinute)));
   }
 
   // 一覧で自分の予定をクリックした時、その予定を編集対象として選択する
@@ -976,13 +1041,15 @@
   // forceNew=true : 編集中の予定があっても上書きせず、必ず新規の別予定として追加(「別で時間を登録」ボタン)
   async function submitEntry(forceNew) {
     if (!activeDateStr || !CURRENT_USER) return;
+    const allDay = document.getElementById('allDayCheck').checked;
     const startHour = START_HOURS[wheels.startHour.getIndex()];
     const startMinute = MINUTES[wheels.startMinute.getIndex()];
     const endHour = END_HOURS[wheels.endHour.getIndex()];
-    const endMinute = MINUTES[wheels.endMinute.getIndex()];
-    const startMin = startHour * 60 + startMinute;
-    // 終了が 24時 / 夜更かし の時は分を無視する
-    const endMin = endHour === 'late' ? LATE_MIN
+    const endMinute = endHour === 'late' ? 0 : MINUTES[wheels.endMinute.getIndex()];
+    // 1日中暇は 5:00〜24:00。終了が 24時 / 夜更かし の時は分を無視する
+    const startMin = allDay ? ALL_DAY_START_MIN : startHour * 60 + startMinute;
+    const endMin = allDay ? END_OF_DAY_MIN
+      : endHour === 'late' ? LATE_MIN
       : endHour === 24 ? END_OF_DAY_MIN
       : endHour * 60 + endMinute;
 
@@ -1059,7 +1126,7 @@
       const row = document.createElement('div');
       row.className = 'entry-row' + (e.id === editingEntryId ? ' editing' : '') + (isOwn ? '' : ' foreign');
       const label = document.createElement('span');
-      label.innerHTML = `<span class="icon-fixed">${e.person}</span> ${formatTime(e.startMin)}〜${formatTime(e.endMin)}`;
+      label.innerHTML = `<span class="icon-fixed">${e.person}</span> ${formatRange(e.startMin, e.endMin, '〜')}`;
       row.appendChild(label);
       if (isOwn) {
         row.style.cursor = 'pointer';
