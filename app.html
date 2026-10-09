@@ -673,9 +673,9 @@
     refreshAndRender();
   }
 
-  // 一致(2人以上)と単独(1人)の両方の帯を、時間帯ごとにまとめて返す
+  // 2人以上が一致している時間帯をまとめて返す
   function computeDaySummaries(entries) {
-    if (!entries || entries.length === 0) return { matched: [], solo: [] };
+    if (!entries || entries.length === 0) return { matched: [] };
     const norm = entries.map(e => {
       let end = e.endMin;
       if (end <= e.startMin) end += 24 * 60;
@@ -713,21 +713,17 @@
       }
     }
     // 時刻は内部値のまま返し、表示時に formatTime() で整形する
+    // (誰とも一致していない時間帯は表示しない。代わりに各ユーザの入力をそのまま並べる)
     const matched = merged
       .filter(s => s.people.length >= 2)
       .map(s => ({ icons: s.people, start: s.start, end: s.end }));
-    // 1日中暇の人は、誰とも一致していない時間を細切れの時刻で出さず「1日中暇だよ🏖️」1行にまとめる
-    const allDayPeople = new Set(entries.filter(isAllDayEntry).map(e => e.person));
-    const solo = [];
-    for (const s of merged.filter(s => s.people.length === 1)) {
-      const icon = s.people[0];
-      if (!allDayPeople.has(icon)) {
-        solo.push({ icon, start: s.start, end: s.end });
-      } else if (!solo.some(x => x.icon === icon && x.allDay)) {
-        solo.push({ icon, allDay: true });
-      }
-    }
-    return { matched, solo };
+    return { matched };
+  }
+
+  // 各ユーザの入力をそのまま表示する用。ユーザ一覧の順 → 開始時刻の早い順
+  function sortedEntries(entries) {
+    return (entries || []).slice().sort((a, b) =>
+      ICON_ORDER.indexOf(a.person) - ICON_ORDER.indexOf(b.person) || a.startMin - b.startMin);
   }
 
   const VISIBLE_DAYS = 30;
@@ -770,7 +766,8 @@
       const content = document.createElement('div');
       content.className = 'day-content';
 
-      const { matched, solo } = computeDaySummaries(schedule[ds]);
+      const { matched } = computeDaySummaries(schedule[ds]);
+      const inputs = sortedEntries(schedule[ds]);
       if (matched.length > 0) row.classList.add('has-match');
       matched.forEach(seg => {
         const s = document.createElement('div');
@@ -779,13 +776,13 @@
         s.innerHTML = `${icons}\n${formatRange(seg.start, seg.end, ' ~ ')}`;
         content.appendChild(s);
       });
-      if (solo.length > 0) {
+      if (inputs.length > 0) {
         const soloWrap = document.createElement('div');
         soloWrap.className = 'solo-wrap';
-        solo.forEach(seg => {
+        inputs.forEach(e => {
           const s = document.createElement('div');
           s.className = 'summary-line-solo';
-          s.innerHTML = `<span class="icon-fixed">${seg.icon}</span> ${seg.allDay ? ALL_DAY_LABEL : formatRange(seg.start, seg.end, ' ~ ')}`;
+          s.innerHTML = `<span class="icon-fixed">${e.person}</span> ${formatRange(e.startMin, e.endMin, ' ~ ')}`;
           soloWrap.appendChild(s);
         });
         content.appendChild(soloWrap);
