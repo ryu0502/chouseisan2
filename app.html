@@ -430,7 +430,7 @@
   .allday-row {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 8px;
     margin: 4px 0 12px;
     font-size: 14px;
@@ -562,7 +562,7 @@
           <div class="wheel-wrap" id="wheelEndMinute"></div>
         </div>
 
-        <label class="allday-row"><input type="checkbox" id="allDayCheck" onchange="applyAllDayState()">1日中暇</label>
+        <label class="allday-row"><input type="checkbox" id="allDayCheck" onchange="applyAllDayState()">1日中暇だよ</label>
         <button class="add-entry-btn" id="addEntryBtn" onclick="submitEntry(false)">時間を登録</button>
         <button class="add-separate-btn" id="addSeparateBtn" onclick="submitEntry(true)" hidden>別で時間を登録</button>
       </div>
