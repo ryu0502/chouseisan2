@@ -899,7 +899,7 @@
 
   let wheels = {};
   const DEFAULT_START_HOUR = 18;
-  const DEFAULT_END_HOUR = 24;
+  const DEFAULT_END_HOUR = 'late';     // 終了の既定は「夜更かし」
 
   function initWheels() {
     const endLabels = END_HOURS.map(h => h === 'late' ? LATE_LABEL : String(h));
