@@ -563,24 +563,6 @@
   }
   .login-user-btn:hover { background: var(--key-hover); }
   .login-user-btn.current { outline: 2px solid var(--accent); }
-  /* 名前ボタンの右に小さな削除ボタンをくっつける */
-  .login-user {
-    display: inline-flex;
-    align-items: center;
-  }
-  .login-user .login-user-btn { border-radius: 999px 0 0 999px; padding-right: 10px; }
-  .login-user-del {
-    border: none;
-    background: var(--key);
-    color: var(--muted);
-    font-size: 15px;
-    line-height: 1;
-    padding: 9px 11px 9px 6px;
-    border-radius: 0 999px 999px 0;
-    cursor: pointer;
-    align-self: stretch;
-  }
-  .login-user-del:hover { color: var(--danger); background: rgba(242, 139, 130, 0.16); }
   .switch-user-btn {
     border: none;
     background: transparent;
@@ -592,6 +574,10 @@
     padding: 0;
   }
   .switch-user-btn:hover { color: var(--text); }
+  /* ログイン中だけ「切り替え」の横に出す。押し間違えないよう控えめな見た目+確認ダイアログ付き */
+  .switch-user-btn.delete-user-btn { margin-left: 10px; }
+  .switch-user-btn.delete-user-btn:hover { color: var(--danger); }
+  .switch-user-btn[hidden] { display: none; }
   .notice-login-btn {
     flex-shrink: 0;
     border: none;
@@ -653,7 +639,7 @@
         </div>
       </div>
     </div>
-    <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><button class="switch-user-btn" id="switchUserBtn" onclick="showLogin()">ログイン</button></div>
+    <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><button class="switch-user-btn" id="switchUserBtn" onclick="showLogin()">ログイン</button><button class="switch-user-btn delete-user-btn" id="deleteUserBtn" onclick="deleteUser(CURRENT_USER)" hidden>ユーザー削除</button></div>
     <div id="userList" class="user-list"></div>
     <p class="sub">各日付をタップして時間を追加してください。<br>登録人数の70%以上の時間が重なるとハイライトされます(全員そろうとさらに濃く)。</p>
     <div class="schedule-list" id="scheduleList"></div>
@@ -827,6 +813,7 @@
       ? `<span class="badge-name">${escapeHtml(CURRENT_USER)}</span>でログイン中`
       : '未ログイン(閲覧のみ)';
     document.getElementById('switchUserBtn').textContent = CURRENT_USER ? '切り替え' : 'ログイン';
+    document.getElementById('deleteUserBtn').hidden = !CURRENT_USER;
   }
 
   // ---------- カレンダー描画 ----------
@@ -1323,27 +1310,18 @@
     el.innerHTML = '';
     const current = CURRENT_USER || lastLoginName;
     list.forEach(u => {
-      const wrap = document.createElement('span');
-      wrap.className = 'login-user';
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'login-user-btn' + (u.name === current ? ' current' : '');
       btn.textContent = u.name;
       btn.onclick = () => login(u.name, '');
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'login-user-del';
-      del.title = `${u.name} を削除`;
-      del.textContent = '×';
-      del.onclick = () => deleteUser(u.name);
-      wrap.appendChild(btn);
-      wrap.appendChild(del);
-      el.appendChild(wrap);
+      el.appendChild(btn);
     });
   }
 
-  // ユーザーを削除する(そのユーザーが登録した時間もすべて消える)
+  // ログイン中のユーザーを削除する(そのユーザーが登録した時間もすべて消える)
   async function deleteUser(name) {
+    if (!name) return;
     const count = Object.values(schedule).flat().filter(e => e.person === name).length;
     const msg = `「${name}」を削除しますか?` + (count ? `\n登録されている時間(${count}件)もすべて消えます。` : '') + '\nこの操作は元に戻せません。';
     if (!confirm(msg)) return;
