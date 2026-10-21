@@ -1,4 +1,4 @@
-// /attendance_confirmation にマッチするルート。shukketsu.html の内容をそのまま返す。
+// /attendance にマッチするルート。shukketsu.html の内容をそのまま返す。
 // Cloudflareは「/shukketsu.html」のような拡張子付きパスを自動で「/shukketsu」へ308リダイレクトするため、
 // env.ASSETS.fetch() には拡張子を外した "/shukketsu" を渡す。
 

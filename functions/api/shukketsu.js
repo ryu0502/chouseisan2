@@ -1,5 +1,5 @@
 // Cloudflare Pages Function: /api/shukketsu
-// /attendance_confirmation ページ用の共有データ(表題 + 登録ユーザー + 予定)。
+// /attendance ページ用の共有データ(表題 + 登録ユーザー + 予定)。
 // (保存キーは旧URL時代の名前のまま。変えると既存データが見えなくなる)
 // 調整さん2と同じ "SCHEDULE_KV" バインディングを使い、別のキーに保存する。
 //

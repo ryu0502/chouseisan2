@@ -65,14 +65,13 @@ https://chosesan2.pages.dev/repoyaru/sinome    → 🤍
 既に登録済みの日を開くと最初の予定が編集モードで開き、「別で時間を登録」で追加もできます)。
 他の人の予定は閲覧のみ。名前なしの `/repoyaru` は全員分の閲覧専用モード。
 
-## 調整さん改 (/attendance_confirmation)
+## 調整さん改 (/attendance)
 
 ```
-https://chosesan-kai-1.pages.dev/attendance_confirmation
+https://chosesan-kai-1.pages.dev/attendance
 ```
 
-- `shukketsu.html` を `functions/attendance_confirmation.js`(と同名フォルダの `[[path]].js`)で返す。
-  旧URL `/2026_10_27-28_shukketsu` は `functions/2026_10_27-28_shukketsu.js` で新URLへ301転送。
+- `shukketsu.html` を `functions/attendance.js`(と同名フォルダの `[[path]].js`)で返す。
   `env.ASSETS.fetch()` に渡すパスは拡張子なしの `/shukketsu`。
 - アクセスするとポップアップが出て、登録済みユーザーが名前順のボタンで並ぶ。
   タップでそのままログイン。ポップアップ外クリック・Esc・×で閉じるとログインせず閲覧のみ。
