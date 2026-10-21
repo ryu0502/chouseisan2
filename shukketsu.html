@@ -320,7 +320,12 @@
   }
   .close-btn:hover { background: var(--key-hover); }
 
+  .readonly-notice[hidden] { display: none; }
   .readonly-notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     font-size: 12.5px;
     color: var(--danger);
     background: rgba(242, 139, 130, 0.12);
@@ -555,6 +560,18 @@
     padding: 0;
   }
   .switch-user-btn:hover { color: var(--text); }
+  .notice-login-btn {
+    flex-shrink: 0;
+    border: none;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .notice-login-btn:hover { background: var(--accent-hover); }
   .entry-empty {
     font-size: 12.5px;
     color: var(--muted);
@@ -601,7 +618,7 @@
         </div>
       </div>
     </div>
-    <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><button class="switch-user-btn" onclick="showLogin()">切り替え</button></div>
+    <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><button class="switch-user-btn" id="switchUserBtn" onclick="showLogin()">ログイン</button></div>
     <div id="userList" class="user-list"></div>
     <p class="sub">各日付をタップして時間を追加してください。<br>登録人数の40%以上の時間が重なるとハイライトされます(60%・80%以上でさらに濃く)。</p>
     <div class="schedule-list" id="scheduleList"></div>
@@ -613,6 +630,11 @@
         <h2 id="modalTitle"></h2>
         <button class="close-btn" onclick="closeModal()">×</button>
       </div>
+
+      <p class="readonly-notice" id="readonlyNotice" hidden>
+        <span>ログインしていないため閲覧のみです。ログインすると自分の時間を登録できます。</span>
+        <button class="notice-login-btn" onclick="showLogin()">ログイン</button>
+      </p>
 
       <div id="editorArea">
         <div class="picker-labels">
@@ -646,7 +668,10 @@
 
   <div class="overlay" id="loginOverlay" hidden>
     <form class="modal" id="loginForm">
-      <div class="modal-header"><h2>ユーザー名を入力</h2></div>
+      <div class="modal-header">
+        <h2>ユーザー名を入力</h2>
+        <button type="button" class="close-btn" onclick="closeLogin()">×</button>
+      </div>
       <p class="login-note">下の一覧から自分の名前をタップしてください。初めての人は名前を入力すると新規登録されます。</p>
       <input class="login-input" id="loginName" maxlength="20" autocomplete="off" placeholder="例: 山田" required oninput="updateKanaField()">
       <input class="login-input" id="loginKana" maxlength="30" autocomplete="off" placeholder="よみがな(例: やまだ)※50音順の並びに使います" hidden>
@@ -762,9 +787,12 @@
 
   function renderUserBadge() {
     const el = document.getElementById('userBadge');
+    // ログインしていない間は閲覧のみ
+    el.classList.toggle('readonly', !CURRENT_USER);
     el.innerHTML = CURRENT_USER
       ? `<span class="badge-name">${escapeHtml(CURRENT_USER)}</span>でログイン中`
-      : '未ログイン';
+      : '未ログイン(閲覧のみ)';
+    document.getElementById('switchUserBtn').textContent = CURRENT_USER ? '切り替え' : 'ログイン';
   }
 
   // ---------- カレンダー描画 ----------
@@ -1103,6 +1131,9 @@
 
     schedule = await fetchSchedule(); // 他のURLで追加された最新の内容を取得
 
+    // ログインしていない間は閲覧のみ(登録用のホイール等を隠す)
+    document.getElementById('editorArea').hidden = !CURRENT_USER;
+    document.getElementById('readonlyNotice').hidden = !!CURRENT_USER;
     initWheels();
     // 自分の予定があれば、一番早い時間帯のものを編集モードで開く(複数ある場合も基準を明確にする)。
     // 別の予定を編集したい時は一覧からクリックして選び直せる
@@ -1221,6 +1252,15 @@
   document.getElementById('overlay').addEventListener('click', (e) => {
     if (e.target.id === 'overlay') closeModal();
   });
+  document.getElementById('loginOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'loginOverlay') closeLogin();
+  });
+  // Escで手前のポップアップから閉じる(ログイン → 日付の順)
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!document.getElementById('loginOverlay').hidden) closeLogin();
+    else if (!document.getElementById('overlay').hidden) closeModal();
+  });
 
   // 登録済みのユーザーと人数(ハイライトの割合の分母)を説明文の上に一覧表示する
   function renderUserList() {
@@ -1268,6 +1308,11 @@
     document.getElementById('loginOverlay').hidden = false;
   }
 
+  // ログインせずに閉じた場合は閲覧のみのまま使える
+  function closeLogin() {
+    document.getElementById('loginOverlay').hidden = true;
+  }
+
   document.getElementById('loginForm').addEventListener('submit', (ev) => {
     ev.preventDefault();
     const name = document.getElementById('loginName').value.trim();
@@ -1292,8 +1337,10 @@
       schedule = data.schedule;
       lastLoginName = user.name;
       try { localStorage.setItem(LAST_NAME_KEY, user.name); } catch (e) {}
-      document.getElementById('loginOverlay').hidden = true;
+      closeLogin();
+      // 日付のポップアップから呼ばれた時は、ログイン後の状態で開き直して登録できるようにする
       renderCalendar();
+      if (activeDateStr) openModal(activeDateStr);
     } catch (e) {
       console.error('ログインに失敗しました', e);
       errorEl.textContent = 'ログインに失敗しました。名前(20文字以内)と通信環境を確認してください。';
