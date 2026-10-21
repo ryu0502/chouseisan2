@@ -246,11 +246,7 @@
     padding: 2px 6px;
     border-radius: 4px;
   }
-  /* 登録人数に対する一致人数の割合で青の濃さを変える(80%以上: 濃い / 60%以上: 普通 / 40%以上: 薄い) */
-  /* 40%は背景になじむ半透明の青で控えめに、60%は濃い色に近い青にする */
-  .summary-line.tier-light { background: rgba(138, 180, 248, 0.16); color: var(--text); }
-  .summary-line.tier-light .name-chip,
-  .summary-line.tier-light .match-count { background: rgba(255, 255, 255, 0.08); }
+  /* 登録人数に対する一致人数の割合で青の濃さを変える(100%: 濃い / 70%以上: 普通) */
   .summary-line.tier-normal { background: #86aaf0; }
   .summary-line.tier-dark { background: #4a7fe0; }
   /* 一致人数 / 全登録者数(時刻の後ろに表示) */
@@ -642,7 +638,7 @@
     </div>
     <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><button class="switch-user-btn" id="switchUserBtn" onclick="showLogin()">ログイン</button></div>
     <div id="userList" class="user-list"></div>
-    <p class="sub">各日付をタップして時間を追加してください。<br>登録人数の40%以上の時間が重なるとハイライトされます(60%・80%以上でさらに濃く)。</p>
+    <p class="sub">各日付をタップして時間を追加してください。<br>登録人数の70%以上の時間が重なるとハイライトされます(全員そろうとさらに濃く)。</p>
     <div class="schedule-list" id="scheduleList"></div>
   </div>
 
@@ -732,9 +728,8 @@
   function highlightTier(count) {
     if (count < 2 || users.length === 0) return null;
     const ratio = count / users.length;
-    if (ratio >= 0.8) return 'dark';
-    if (ratio >= 0.6) return 'normal';
-    if (ratio >= 0.4) return 'light';
+    if (ratio >= 1) return 'dark';
+    if (ratio >= 0.7) return 'normal';
     return null;
   }
 
