@@ -114,6 +114,7 @@
   }
   .user-badge .badge-name { color: var(--accent); }
   .user-badge.readonly { color: var(--danger); }
+  .sub strong { color: var(--text); }
   .sub {
     font-size: 13px;
     color: var(--muted);
@@ -641,7 +642,7 @@
     </div>
     <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><button class="switch-user-btn" id="switchUserBtn" onclick="showLogin()">ログイン</button><button class="switch-user-btn delete-user-btn" id="deleteUserBtn" onclick="deleteUser(CURRENT_USER)" hidden>ユーザー削除</button></div>
     <div id="userList" class="user-list"></div>
-    <p class="sub">各日付をタップして時間を追加してください。<br>登録人数の70%以上の時間が重なるとハイライトされます(全員そろうとさらに濃く)。</p>
+    <p class="sub">各日付をタップして時間を追加してください。<br>同日に複数の時間帯を追加する場合、追加したい時間を選択後に<strong>別の時間として登録</strong>をクリックしてください。<br>登録人数の<strong>70%以上</strong>、<strong>全員</strong>の時間が重なるとハイライトされます。</p>
     <div class="schedule-list" id="scheduleList"></div>
   </div>
 
