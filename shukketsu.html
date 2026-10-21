@@ -685,7 +685,7 @@
         <button class="add-separate-btn" id="addSeparateBtn" onclick="submitEntry(true)" hidden>別の時間として登録</button>
       </div>
 
-      <p class="entry-list-title">この日に登録された時間</p>
+      <p class="entry-list-title" id="entryListTitle">この日に登録している時間</p>
       <div id="entryList"></div>
     </div>
   </div>
@@ -1249,8 +1249,13 @@
   function renderEntryList() {
     const list = document.getElementById('entryList');
     list.innerHTML = '';
+    // 自分の時間だけを出す(他の人の時間はカレンダー側で見られる)。ログインしていない時は一覧ごと隠す
+    document.getElementById('entryListTitle').hidden = !CURRENT_USER;
+    if (!CURRENT_USER) return;
     // 時間帯が早い順に並べる
-    const entries = (schedule[activeDateStr] || []).slice().sort((a, b) => a.startMin - b.startMin);
+    const entries = (schedule[activeDateStr] || [])
+      .filter(e => e.person === CURRENT_USER)
+      .sort((a, b) => a.startMin - b.startMin);
     if (entries.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'entry-empty';
@@ -1259,21 +1264,18 @@
       return;
     }
     entries.forEach(e => {
-      const isOwn = e.person === CURRENT_USER;
       const row = document.createElement('div');
-      row.className = 'entry-row' + (e.id === editingEntryId ? ' editing' : '') + (isOwn ? '' : ' foreign');
+      row.className = 'entry-row' + (e.id === editingEntryId ? ' editing' : '');
       const label = document.createElement('span');
-      label.innerHTML = `${nameChip(e.person)} ${formatRange(e.startMin, e.endMin, '〜')}`;
+      label.textContent = formatRange(e.startMin, e.endMin, '〜');
       row.appendChild(label);
-      if (isOwn) {
-        row.style.cursor = 'pointer';
-        row.onclick = () => selectEntryForEdit(e.id);
-        const del = document.createElement('button');
-        del.className = 'del';
-        del.textContent = '×';
-        del.onclick = (ev) => { ev.stopPropagation(); deleteEntry(e.id); };
-        row.appendChild(del);
-      }
+      row.style.cursor = 'pointer';
+      row.onclick = () => selectEntryForEdit(e.id);
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = '×';
+      del.onclick = (ev) => { ev.stopPropagation(); deleteEntry(e.id); };
+      row.appendChild(del);
       list.appendChild(row);
     });
   }
