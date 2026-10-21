@@ -9,7 +9,7 @@
 const KEY = 'shukketsu-2026_10_27-28';
 const NAME_MAX = 20;
 const KANA_MAX = 30;
-// 仕事の時間帯で使うので、登録できるのは 9:00〜17:30
+// 仕事の時間帯で使うので、登録できるのは 9:00〜17:30(30分刻み)
 const WORK_START_MIN = 9 * 60;
 const WORK_END_MIN = 17 * 60 + 30;
 
@@ -44,6 +44,7 @@ function findUser(data, name) {
 
 function validRange(startMin, endMin) {
   return Number.isInteger(startMin) && Number.isInteger(endMin)
+    && startMin % 30 === 0 && endMin % 30 === 0
     && startMin >= WORK_START_MIN && endMin <= WORK_END_MIN && startMin < endMin;
 }
 

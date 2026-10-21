@@ -691,14 +691,14 @@
     return null;
   }
 
-  // 仕事の時間帯で使うので、入力できるのは 9:00〜17:30(15分刻み)
+  // 仕事の時間帯で使うので、入力できるのは 9:00〜17:30(30分刻み)
   const WORK_START_MIN = 9 * 60;
   const WORK_END_MIN = 17 * 60 + 30;
   const ALL_DAY_LABEL = '終日可';      // 終日可 = 9:00〜17:30 として重なりを計算する
   const ALL_DAY_START_MIN = WORK_START_MIN;
   const ALL_DAY_END_MIN = WORK_END_MIN;
   const HOURS = Array.from({ length: 9 }, (_, i) => 9 + i); // 開始・終了とも 9〜17時
-  const MINUTES = [0, 15, 30, 45];
+  const MINUTES = [0, 30];
   const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
 
   const API_URL = '/api/shukketsu';
@@ -1018,10 +1018,10 @@
     applyAllDayState();
   }
 
-  // 17時台は「分」の選択肢を絞る(開始は17:15まで、終了は17:30まで)
+  // 17時台は「分」の選択肢を絞る(開始は17:00まで、終了は17:30まで)
   let minuteLists = { start: null, end: null };
   function minutesFor(kind, hour) {
-    const limit = kind === 'end' ? WORK_END_MIN : WORK_END_MIN - 15;
+    const limit = kind === 'end' ? WORK_END_MIN : WORK_END_MIN - 30;
     return MINUTES.filter(m => hour * 60 + m <= limit);
   }
   function syncMinuteWheel(kind) {
@@ -1034,7 +1034,7 @@
     const idx = list.includes(prevMinute) ? list.indexOf(prevMinute) : list.length - 1;
     minuteLists[kind] = list;
     const el = document.getElementById(kind === 'start' ? 'wheelStartMinute' : 'wheelEndMinute');
-    wheels[kind + 'Minute'] = buildWheel(el, list.map(m => pad2(m)), idx, () => {}, { loop: true });
+    wheels[kind + 'Minute'] = buildWheel(el, list.map(m => pad2(m)), idx, () => {}, { loop: list.length > 1 });
   }
   function getWheelTime(kind) {
     return HOURS[wheels[kind + 'Hour'].getIndex()] * 60 + minuteLists[kind][wheels[kind + 'Minute'].getIndex()];
