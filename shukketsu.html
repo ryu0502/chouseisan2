@@ -215,7 +215,7 @@
     padding-top: 2px;
   }
   .match-col {
-    flex: 3 1 0;
+    flex: 1 1 0;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -275,12 +275,14 @@
   .summary-line-solo .name-chip { background: var(--key); color: var(--text); }
   .entry-row .name-chip { background: rgba(0, 0, 0, 0.25); }
   /* 一致していない単独の予定: 控えめな表示でコントラストをつける。横幅を活かして2列に並べる */
+  /* 個人の時間は幅に応じて複数列に並べる */
   .solo-wrap {
-    flex: 2 1 0;
+    flex: 1 1 0;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    align-content: start;
+    gap: 2px 10px;
   }
   .summary-line-solo {
     font-size: 13px;
@@ -619,8 +621,8 @@
     .summary-line { font-size: 12.5px; padding: 1px 4px; }
     .day-content { flex-direction: column; gap: 3px; }
     .match-col:empty { display: none; }
-    .solo-wrap { flex-direction: row; flex-wrap: wrap; gap: 2px 10px; }
-    .summary-line-solo { flex: 1 1 45%; font-size: 11px; min-width: 80px; }
+    .solo-wrap { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+    .summary-line-solo { font-size: 11px; }
     .modal { padding: 14px; border-radius: 16px; }
     .picker-row { gap: 6px; }
     .picker-labels { gap: 6px; font-size: 9.5px; }
