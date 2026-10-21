@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>調整さん2</title>
+<style>
+  /* Chromeのダークモード風の配色に固定(OS/ブラウザの設定に関わらず常にこの配色) */
+  :root {
+    color-scheme: dark;
+    --bg: #202124;
+    --panel: #2d2e30;
+    --text: #e8eaed;
+    --muted: #9aa0a6;
+    --accent: #8ab4f8;
+    --accent-hover: #aecbfa;
+    --key: #3c4043;
+    --key-hover: #4a4d51;
+    --danger: #f28b82;
+    --danger-hover: #ee6a60;
+    --border: #3c4043;
+    --sunday: #f28b82;
+    --saturday: #8ab4f8;
+    --match-bg: rgba(138, 180, 248, 0.14);
+    --match-border: rgba(138, 180, 248, 0.4);
+    --wheel-w: 60px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow-x: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Google Sans", "Segoe UI", "Hiragino Sans", system-ui, sans-serif;
+    padding: 24px;
+  }
+  .app {
+    max-width: 780px;
+    margin: 0 auto;
+    background: var(--panel);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    padding: 20px;
+  }
+  /* タイトルを左端、月ラベルを右から2番目、月送りボタンを右端に配置 */
+  .app-header {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+  .app-title {
+    font-size: 39px;
+    font-weight: 700;
+    margin: 0;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  /* タイトルの文字列と続けて読めてしまわないよう、月ラベル+ボタンをひとまとまりの部品として見せる。
+     ボタン同士・ボタンと月ラベルの間もぎゅっと寄せる。タイトルより一回り小さくして主従をはっきりさせる */
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--key);
+    border-radius: 999px;
+    padding: 3px 4px 3px 14px;
+    margin-left: 12px;
+    flex-shrink: 0;
+  }
+  .month-label {
+    font-size: 26px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .nav-group {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .nav-btn {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .nav-btn:hover { background: var(--key-hover); }
+  /* ログイン中の人が一目でわかるよう、右寄せ+背景色付きのバッジにして目立たせる。
+     名前+アイコンだけ強調色、「でログイン中」は通常の文字色にする */
+  .user-badge-row {
+    text-align: right;
+    margin: 0 0 8px;
+  }
+  .user-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    background: var(--key);
+    border-radius: 999px;
+    padding: 4px 12px;
+  }
+  .user-badge .badge-name { color: var(--accent); }
+  .user-badge.readonly { color: var(--danger); }
+  .sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+
+  /* ---- ユーザー一覧 ---- */
+  .user-list {
+    margin: 0 0 14px;
+  }
+  .user-list-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 6px;
+  }
+  .user-list-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .user-list-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--key);
+    border-radius: 999px;
+    padding: 4px 10px 4px 12px;
+  }
+
+  /* ---- スケジュール表示(Googleカレンダーの「スケジュール」表示風: 縦一列の一覧) ---- */
+  .schedule-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .day-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+  .day-row:last-child { border-bottom: none; }
+  .day-row:hover { background: var(--key); }
+  /* 一致(部分一致)があった日は背景を強調して、無い日とのコントラストをはっきりさせる。
+     一致した日が連続しても境目が見えるよう、区切り線はやや濃いめの色にする */
+  .day-row.has-match {
+    background: var(--match-bg);
+    border-bottom-color: rgba(138, 180, 248, 0.5);
+  }
+  .day-row.has-match:hover { background: rgba(138, 180, 248, 0.22); }
+  /* 今日より前の日付: Googleカレンダー風にやや控えめなグレーアウト */
+  .day-row.past { opacity: 0.6; }
+
+  /* 日付と曜日を横並びで「1(土)」のようにまとめる(タップしやすいよう幅にゆとりを持たせる) */
+  .day-date {
+    flex-shrink: 0;
+    width: 62px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-top: 2px;
+  }
+  .day-date .num {
+    font-size: 13px;
+    font-weight: 600;
+    width: 27px;
+    height: 27px;
+    line-height: 27px;
+    text-align: center;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .day-date .dow {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .day-date .num.sun, .day-date .dow.sun { color: var(--sunday); }
+  .day-date .num.sat, .day-date .dow.sat { color: var(--saturday); }
+  /* 今日の日付: Googleカレンダーのような塗りつぶし丸 */
+  .day-row.today .num {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .day-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-top: 2px;
+  }
+  /* アイコンごとに幅を揃えて時刻表示の位置を揃えつつ、背景の丸チップでアイコン自体も見やすくする。
+     色付き絵文字には影響しないが、「衣」のような文字アイコンの色を白に統一する */
+  .icon-fixed {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6em;
+    height: 1.6em;
+    background: rgba(0, 0, 0, 0.16);
+    color: #fff;
+    border-radius: 50%;
+    vertical-align: middle;
+  }
+  /* アイコンが複数並ぶ時にビタ付きにならないよう少しだけ間隔をあける */
+  .icon-fixed + .icon-fixed { margin-left: 3px; }
+  /* 一致(2人以上)のサマリ: イベントバー風の強めのバッジ表示。アイコン行と時刻行で改行する(通常の1.3倍サイズ) */
+  .summary-line {
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--bg);
+    font-weight: 700;
+    white-space: pre-line;
+    overflow-wrap: break-word;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  /* 登録人数に対する一致人数の割合で青の濃さを変える(80%以上: 濃い / 60%以上: 普通 / 40%以上: 薄い) */
+  .summary-line.tier-light { background: #e6eefd; }
+  .summary-line.tier-normal { background: #b3cdfa; }
+  .summary-line.tier-dark { background: #4a7fe0; }
+  /* ユーザー名のチップ(アイコンの代わり)。長い名前は省略表示する */
+  .name-chip {
+    display: inline-block;
+    max-width: 9em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+    font-size: 0.85em;
+    line-height: 1.6;
+    padding: 0 0.6em;
+    background: rgba(0, 0, 0, 0.16);
+    border-radius: 999px;
+  }
+  .summary-line-solo .name-chip { background: var(--key); color: var(--text); }
+  .entry-row .name-chip { background: rgba(0, 0, 0, 0.25); }
+  /* 一致していない単独の予定: 控えめな表示でコントラストをつける。横幅を活かして2列に並べる */
+  .solo-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+  }
+  .summary-line-solo {
+    flex: 1 1 45%;
+    min-width: 100px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* ---- モーダル ---- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 50;
+  }
+  .overlay[hidden] { display: none; }
+  .modal {
+    background: var(--panel);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    padding: 20px;
+    width: 400px;
+    max-width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .modal-header h2 {
+    font-size: 16px;
+    margin: 0;
+  }
+  .close-btn {
+    border: none;
+    background: var(--key);
+    color: var(--text);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 15px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .close-btn:hover { background: var(--key-hover); }
+
+  .readonly-notice {
+    font-size: 12.5px;
+    color: var(--danger);
+    background: rgba(242, 139, 130, 0.12);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+
+  .picker-labels {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .picker-labels span { flex-shrink: 0; text-align: center; }
+  .lbl-normal { width: var(--wheel-w); }
+  .lbl-sep { width: 14px; }
+  .lbl-sep-wide { width: 20px; }
+  .picker-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0 10px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .picker-row::-webkit-scrollbar { display: none; }
+  .sep {
+    font-size: 14px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .wheel-wrap {
+    position: relative;
+    width: var(--wheel-w);
+    height: 180px;
+    flex-shrink: 0;
+  }
+  .wheel-highlight {
+    position: absolute;
+    left: 0; right: 0;
+    top: 72px;
+    height: 36px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: rgba(138,180,248,0.12);
+    pointer-events: none;
+    border-radius: 6px;
+  }
+  .wheel-viewport {
+    position: relative;
+    height: 100%;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    padding: 72px 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .wheel-viewport::-webkit-scrollbar { display: none; }
+  .wheel-viewport.dragging {
+    cursor: grabbing;
+    scroll-snap-type: none;
+  }
+  .wheel-item {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--muted);
+    scroll-snap-align: center;
+    user-select: none;
+  }
+  .wheel-item.selected {
+    color: var(--text);
+    font-weight: 700;
+  }
+  .wheel-item.long { font-size: 12px; letter-spacing: -0.5px; } /* 「夜更かし」など長いラベル用 */
+
+  .add-entry-btn {
+    display: block;
+    width: 100%;
+    border: none;
+    background: var(--accent);
+    color: #202124;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 0;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-bottom: 16px;
+  }
+  .add-entry-btn:hover { background: var(--accent-hover); }
+  .add-entry-btn:active { transform: scale(0.98); }
+
+  .add-separate-btn {
+    display: block;
+    width: 100%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--accent);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 10px 0;
+    border-radius: 12px;
+    cursor: pointer;
+    margin: -8px 0 16px;
+  }
+  .add-separate-btn:hover { background: var(--key); }
+  .add-separate-btn:active { transform: scale(0.98); }
+  .add-separate-btn[hidden] { display: none; } /* display:block より hidden を優先させる */
+
+  /* 「1日中暇」チェックボックス(時間を登録ボタンの上) */
+  .allday-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    margin: 4px 0 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+  }
+  .allday-row input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+  /* 1日中暇の時は時刻ホイールを操作できないようにする */
+  .picker-row.disabled, .picker-labels.disabled { opacity: 0.3; pointer-events: none; }
+
+  .entry-list-title {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 8px;
+  }
+  .entry-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--key);
+    border-radius: 10px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    font-size: 13.5px;
+  }
+  .entry-row.editing {
+    outline: 2px solid var(--accent);
+  }
+  .entry-row.foreign {
+    opacity: 0.7;
+  }
+  .entry-row .del {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: rgba(242, 139, 130, 0.16);
+    color: var(--danger);
+    font-size: 19px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .entry-row .del:hover { background: rgba(242, 139, 130, 0.28); }
+  /* ---- ログインポップアップ ---- */
+  .login-note {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  .login-input {
+    width: 100%;
+    font-size: 16px; /* iOSで入力時に拡大されないよう16px以上にする */
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    margin: 0 0 12px;
+  }
+  .login-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .login-error {
+    font-size: 12.5px;
+    color: var(--danger);
+    margin: -4px 0 12px;
+  }
+  .switch-user-btn {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+    margin-left: 4px;
+    padding: 0;
+  }
+  .switch-user-btn:hover { color: var(--text); }
+  .entry-empty {
+    font-size: 12.5px;
+    color: var(--muted);
+    padding: 6px 2px 2px;
+  }
+
+  /* ---- スマホ表示向けの調整 ---- */
+  @media (max-width: 480px) {
+    :root {
+      --wheel-w: 52px;
+    }
+    body { padding: 10px; }
+    .app { padding: 14px; border-radius: 10px; }
+    .app-title { font-size: 32px; }
+    .header-right { padding: 2px 3px 2px 10px; margin-left: 8px; }
+    .month-label { font-size: 18px; }
+    .nav-btn { width: 28px; height: 28px; font-size: 15px; }
+    .user-badge { font-size: 11px; padding: 3px 10px; }
+    .sub { font-size: 11.5px; margin-bottom: 8px; }
+    .day-row { padding: 5px 2px; gap: 8px; }
+    .day-date { width: 50px; }
+    .day-date .num { font-size: 11.5px; width: 22px; height: 22px; line-height: 22px; }
+    .day-date .dow { font-size: 9.5px; }
+    .summary-line { font-size: 12.5px; padding: 1px 4px; }
+    .summary-line-solo { font-size: 11px; min-width: 80px; }
+    .modal { padding: 14px; border-radius: 16px; }
+    .picker-row { gap: 6px; }
+    .picker-labels { gap: 6px; font-size: 9.5px; }
+    .sep { font-size: 12px; }
+    .wheel-item { font-size: 14px; }
+    .wheel-item.long { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="app-header">
+      <h1 class="app-title">調整さん2</h1>
+      <div class="header-right">
+        <span id="monthLabel" class="month-label"></span>
+        <div class="nav-group">
+          <button class="nav-btn" onclick="changePage(-1)">‹</button>
+          <button class="nav-btn" onclick="changePage(1)">›</button>
+        </div>
+      </div>
+    </div>
+    <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><button class="switch-user-btn" onclick="showLogin()">切り替え</button></div>
+    <div id="userList" class="user-list"></div>
+    <p class="sub">各日付をタップして時間を追加してください。<br>登録人数の40%以上の時間が重なるとハイライトされます(60%・80%以上でさらに濃く)。</p>
+    <div class="schedule-list" id="scheduleList"></div>
+  </div>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle"></h2>
+        <button class="close-btn" onclick="closeModal()">×</button>
+      </div>
+
+      <div id="editorArea">
+        <div class="picker-labels">
+          <span class="lbl-normal">開始 時</span>
+          <span class="lbl-sep"></span>
+          <span class="lbl-normal">分</span>
+          <span class="lbl-sep-wide"></span>
+          <span class="lbl-normal">終了 時</span>
+          <span class="lbl-sep"></span>
+          <span class="lbl-normal">分</span>
+        </div>
+        <div class="picker-row">
+          <div class="wheel-wrap" id="wheelStartHour"></div>
+          <span class="sep">:</span>
+          <div class="wheel-wrap" id="wheelStartMinute"></div>
+          <span class="sep">〜</span>
+          <div class="wheel-wrap" id="wheelEndHour"></div>
+          <span class="sep">:</span>
+          <div class="wheel-wrap" id="wheelEndMinute"></div>
+        </div>
+
+        <label class="allday-row"><input type="checkbox" id="allDayCheck" onchange="applyAllDayState()">1日中暇だよ🏖️</label>
+        <button class="add-entry-btn" id="addEntryBtn" onclick="submitEntry(false)">時間を登録</button>
+        <button class="add-separate-btn" id="addSeparateBtn" onclick="submitEntry(true)" hidden>別で時間を登録</button>
+      </div>
+
+      <p class="entry-list-title">この日に登録された時間</p>
+      <div id="entryList"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="loginOverlay" hidden>
+    <form class="modal" id="loginForm">
+      <div class="modal-header"><h2>ユーザー名を入力</h2></div>
+      <p class="login-note">初めての名前なら新規登録、登録済みの名前ならその人としてログインします。</p>
+      <input class="login-input" id="loginName" maxlength="20" autocomplete="off" placeholder="例: ryu" required>
+      <p class="login-error" id="loginError" hidden></p>
+      <button class="add-entry-btn" type="submit" id="loginBtn">はじめる</button>
+    </form>
+  </div>
+
+<script>
+  // アクセス時のポップアップで入力したユーザー名でログインする(未登録の名前なら新規登録)
+  let users = [];               // 登録順のユーザー一覧 [{name, createdAt}]
+  let CURRENT_USER = null;      // ログイン中のユーザー名(予定の person にもこの名前が入る)
+  const LAST_NAME_KEY = 'shukketsu-last-name'; // 次回ポップアップに前回の名前を入れておく用
+
+  const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => HTML_ESCAPES[c]);
+  }
+  function nameChip(name) { return `<span class="name-chip">${escapeHtml(name)}</span>`; }
+  // 時間で並び順が決まらない時のタイブレーク用(登録順)
+  function userOrder(name) {
+    const i = users.findIndex(u => u.name === name);
+    return i === -1 ? users.length : i;
+  }
+
+  // 登録人数に対する一致人数の割合でハイライトの濃さを決める(2人以上の一致のみ対象)
+  function highlightTier(count) {
+    if (count < 2 || users.length === 0) return null;
+    const ratio = count / users.length;
+    if (ratio >= 0.8) return 'dark';
+    if (ratio >= 0.6) return 'normal';
+    if (ratio >= 0.4) return 'light';
+    return null;
+  }
+
+  // 1日に入力できるのは 5:00〜24:00、または「夜更かし」(24時以降も起きている)
+  const DAY_START_HOUR = 5;
+  const END_OF_DAY_MIN = 24 * 60;      // 24:00
+  const LATE_MIN = 48 * 60;            // 「夜更かし」を表す終了時刻(旧データの翌朝までの時刻より必ず後ろになる値)
+  const LATE_LABEL = '夜更かし';
+  const ALL_DAY_LABEL = '1日中暇だよ🏖️';     // 1日中暇 = 5:00〜夜更かし として重なりを計算する
+  const ALL_DAY_START_MIN = DAY_START_HOUR * 60;
+  const ALL_DAY_END_MIN = LATE_MIN;
+  const START_HOURS = Array.from({ length: 24 - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i);      // 5〜23時
+  const END_HOURS = [...Array.from({ length: 25 - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i), 'late']; // 5〜24時, 夜更かし
+  const MINUTES = [0, 15, 30, 45];
+  const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
+
+  const API_URL = '/api/shukketsu';
+  let schedule = {};            // { 'YYYY-MM-DD': [{id, person, startMin, endMin}] }
+  let pageOffset = 0;           // 30日単位でのページ送り(0が既定表示: 前日〜29日後)
+  let activeDateStr = null;
+
+  const today = new Date();
+  const todayStr = dateStr(today.getFullYear(), today.getMonth(), today.getDate());
+
+  async function fetchSchedule() {
+    try {
+      const res = await fetch(API_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('fetch failed: ' + res.status);
+      const data = await res.json();
+      users = data.users || [];
+      return data.schedule || {};
+    } catch (e) {
+      console.error('スケジュールの取得に失敗しました', e);
+      return schedule; // 失敗時は直前の状態を保持
+    }
+  }
+
+  // 追加・更新・削除は操作単位でサーバに送り、返ってきた最新データで置き換える
+  async function postAction(action, payload) {
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, name: CURRENT_USER, ...payload }),
+      });
+      if (!res.ok) throw new Error('save failed: ' + res.status);
+      const { data } = await res.json();
+      users = data.users;
+      schedule = data.schedule;
+      return true;
+    } catch (e) {
+      console.error('スケジュールの保存に失敗しました', e);
+      alert('保存に失敗しました。通信環境を確認してもう一度お試しください。');
+      return false;
+    }
+  }
+
+  async function refreshAndRender() {
+    schedule = await fetchSchedule();
+    renderCalendar();
+  }
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function dateStr(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
+  function formatHM(totalMin) {
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${h}:${pad2(m)}`;
+  }
+  // 表示用の時刻。夜更かし→「夜更かし」、24:00→「24:00」、それ以外は0〜23時表記
+  // (旧データの日またぎは内部で24時以降になるため % 1440 で戻す)
+  function formatTime(totalMin) {
+    if (totalMin >= LATE_MIN) return LATE_LABEL;
+    if (totalMin === END_OF_DAY_MIN) return '24:00';
+    return formatHM(totalMin % 1440);
+  }
+  // 時間帯の表示。5:00〜夜更かし (=1日中暇) は「1日中暇だよ🏖️」とだけ表示する
+  function formatRange(start, end, sep) {
+    if (start === ALL_DAY_START_MIN && end === ALL_DAY_END_MIN) return ALL_DAY_LABEL;
+    return `${formatTime(start)}${sep}${formatTime(end)}`;
+  }
+
+  function renderUserBadge() {
+    const el = document.getElementById('userBadge');
+    el.innerHTML = CURRENT_USER
+      ? `<span class="badge-name">${escapeHtml(CURRENT_USER)}</span>でログイン中`
+      : '未ログイン';
+  }
+
+  // ---------- カレンダー描画 ----------
+  function changePage(diff) {
+    pageOffset += diff;
+    refreshAndRender();
+  }
+
+  // 2人以上が一致している時間帯をまとめて返す
+  function computeDaySummaries(entries) {
+    if (!entries || entries.length === 0) return { matched: [] };
+    const norm = entries.map(e => {
+      let end = e.endMin;
+      if (end <= e.startMin) end += 24 * 60;
+      return { person: e.person, start: e.startMin, end };
+    });
+    const points = Array.from(new Set(norm.flatMap(e => [e.start, e.end]))).sort((a, b) => a - b);
+    const segments = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const t1 = points[i], t2 = points[i + 1];
+      if (t1 === t2) continue;
+      const activeEntries = norm.filter(e => e.start <= t1 && e.end >= t2);
+      if (activeEntries.length === 0) continue;
+      // 同じ人が複数該当する場合は一番早い開始時刻を採用する
+      const byPerson = new Map();
+      for (const e of activeEntries) {
+        const cur = byPerson.get(e.person);
+        if (!cur || e.start < cur.start) byPerson.set(e.person, e);
+      }
+      // アイコンの並び順: 先に時間帯に入っていた人が先頭、後から合流した人ほど後ろに。
+      // 開始時刻が同じ場合はユーザ一覧の順番で決める
+      const people = Array.from(byPerson.values())
+        .sort((a, b) => a.start - b.start || userOrder(a.person) - userOrder(b.person))
+        .map(e => e.person);
+      segments.push({ people, start: t1, end: t2 });
+    }
+    // 同じメンバー構成が連続していたら結合する
+    const merged = [];
+    for (const seg of segments) {
+      const key = seg.people.slice().sort().join(',');
+      const last = merged[merged.length - 1];
+      if (last && last.key === key && last.end === seg.start) {
+        last.end = seg.end;
+      } else {
+        merged.push({ key, people: seg.people, start: seg.start, end: seg.end });
+      }
+    }
+    // 時刻は内部値のまま返し、表示時に formatTime() で整形する
+    // (誰とも一致していない時間帯は表示しない。代わりに各ユーザの入力をそのまま並べる)
+    const matched = merged
+      .map(s => ({ icons: s.people, start: s.start, end: s.end, tier: highlightTier(s.people.length) }))
+      .filter(s => s.tier);
+    return { matched };
+  }
+
+  // 各ユーザの入力をそのまま表示する用。ユーザ一覧の順 → 開始時刻の早い順
+  function sortedEntries(entries) {
+    return (entries || []).slice().sort((a, b) =>
+      userOrder(a.person) - userOrder(b.person) || a.startMin - b.startMin);
+  }
+
+  const VISIBLE_DAYS = 30;
+
+  function renderCalendar() {
+    renderUserBadge();
+    renderUserList();
+
+    // 過去の日付は前日までしか見せず、そこから合計30日分だけを表示するローリング表示
+    const rangeStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1 + pageOffset * VISIBLE_DAYS);
+    document.getElementById('monthLabel').textContent = `${rangeStart.getFullYear()}年${rangeStart.getMonth() + 1}月`;
+
+    const list = document.getElementById('scheduleList');
+    list.innerHTML = '';
+
+    for (let i = 0; i < VISIBLE_DAYS; i++) {
+      const cellDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + i);
+      const ds = dateStr(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
+      const dow = cellDate.getDay();
+      const isPast = ds < todayStr;
+      const dowClass = dow === 0 ? ' sun' : dow === 6 ? ' sat' : '';
+
+      const row = document.createElement('div');
+      row.className = 'day-row'
+        + (isPast ? ' past' : '')
+        + (ds === todayStr ? ' today' : '');
+      row.onclick = () => openModal(ds);
+
+      const dateCol = document.createElement('div');
+      dateCol.className = 'day-date';
+      const numEl = document.createElement('span');
+      numEl.className = 'num' + dowClass;
+      numEl.textContent = cellDate.getDate();
+      const dowEl = document.createElement('span');
+      dowEl.className = 'dow' + dowClass;
+      dowEl.textContent = `(${WEEKDAY_LABELS[dow]})`;
+      dateCol.appendChild(numEl);
+      dateCol.appendChild(dowEl);
+      row.appendChild(dateCol);
+
+      const content = document.createElement('div');
+      content.className = 'day-content';
+
+      const { matched } = computeDaySummaries(schedule[ds]);
+      const inputs = sortedEntries(schedule[ds]);
+      if (matched.length > 0) row.classList.add('has-match');
+      matched.forEach(seg => {
+        const s = document.createElement('div');
+        s.className = 'summary-line tier-' + seg.tier;
+        const icons = seg.icons.map(nameChip).join(' ');
+        s.innerHTML = `${icons}\n${formatRange(seg.start, seg.end, ' ~ ')}`;
+        content.appendChild(s);
+      });
+      if (inputs.length > 0) {
+        const soloWrap = document.createElement('div');
+        soloWrap.className = 'solo-wrap';
+        inputs.forEach(e => {
+          const s = document.createElement('div');
+          s.className = 'summary-line-solo';
+          s.innerHTML = `${nameChip(e.person)} ${formatRange(e.startMin, e.endMin, ' ~ ')}`;
+          soloWrap.appendChild(s);
+        });
+        content.appendChild(soloWrap);
+      }
+      row.appendChild(content);
+      list.appendChild(row);
+    }
+  }
+
+  // ---------- ホイールピッカー ----------
+  const ITEM_H = 36;
+
+  function buildWheel(containerEl, items, initialIndex, onChange, options) {
+    const loop = !!(options && options.loop);
+    const N = items.length;
+    const REPEAT = loop ? 9 : 1;      // ループ用に同じ並びを複製して無限スクロールに見せる
+    const MIDDLE = Math.floor(REPEAT / 2);
+
+    containerEl.innerHTML = '';
+    const highlight = document.createElement('div');
+    highlight.className = 'wheel-highlight';
+    containerEl.appendChild(highlight);
+
+    const viewport = document.createElement('div');
+    viewport.className = 'wheel-viewport';
+    containerEl.appendChild(viewport);
+
+    for (let c = 0; c < REPEAT; c++) {
+      items.forEach((label) => {
+        const item = document.createElement('div');
+        item.className = 'wheel-item' + (label.length > 2 ? ' long' : '');
+        item.textContent = label;
+        viewport.appendChild(item);
+      });
+    }
+
+    const children = viewport.children;
+    function markSelected(rawIndex) {
+      for (let i = 0; i < children.length; i++) {
+        children[i].classList.toggle('selected', i === rawIndex);
+      }
+    }
+    function rawFromValue(valueIndex) { return MIDDLE * N + valueIndex; }
+
+    let scrollTimer = null;
+    let currentIndex = initialIndex;
+    let dragging = false;
+
+    function snapToNearest() {
+      let raw = Math.round(viewport.scrollTop / ITEM_H);
+      raw = Math.max(0, Math.min(children.length - 1, raw));
+      const valueIndex = ((raw % N) + N) % N;
+      let targetRaw = raw;
+      let instant = false;
+      if (loop) {
+        const copyIndex = Math.floor(raw / N);
+        if (copyIndex <= 1 || copyIndex >= REPEAT - 2) {
+          // 端の複製に近づいたら見た目が同じ真ん中の複製へ瞬時に戻し、無限ループに見せる
+          targetRaw = rawFromValue(valueIndex);
+          instant = true;
+        }
+      }
+      viewport.scrollTo({ top: targetRaw * ITEM_H, behavior: instant ? 'auto' : 'smooth' });
+      currentIndex = valueIndex;
+      markSelected(targetRaw);
+      onChange(valueIndex);
+    }
+
+    viewport.addEventListener('scroll', () => {
+      if (dragging) return; // ドラッグ中はpointerup側でスナップさせる
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(snapToNearest, 100);
+    });
+
+    // マウス/タッチのドラッグでホイールを回せるようにする
+    let startY = 0;
+    let startScrollTop = 0;
+    viewport.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      clearTimeout(scrollTimer);
+      startY = e.clientY;
+      startScrollTop = viewport.scrollTop;
+      viewport.setPointerCapture(e.pointerId);
+      viewport.classList.add('dragging');
+    });
+    viewport.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      viewport.scrollTop = startScrollTop - (e.clientY - startY);
+    });
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      viewport.classList.remove('dragging');
+      try { viewport.releasePointerCapture(e.pointerId); } catch (err) {}
+      snapToNearest();
+    }
+    viewport.addEventListener('pointerup', endDrag);
+    viewport.addEventListener('pointercancel', endDrag);
+    viewport.addEventListener('pointerleave', (e) => { if (dragging) endDrag(e); });
+
+    // 初期位置へ即座にスクロール
+    // (requestAnimationFrameで遅延させると、直後にsetIndex()で正しい値を
+    //  セットしても次のフレームでこの初期値に上書きされてしまうため、同期的に実行する)
+    {
+      const raw = rawFromValue(initialIndex);
+      viewport.scrollTop = raw * ITEM_H;
+      markSelected(raw);
+    }
+
+    return {
+      getIndex: () => currentIndex,
+      setIndex: (valueIndex) => {
+        const raw = rawFromValue(valueIndex);
+        viewport.scrollTop = raw * ITEM_H;
+        currentIndex = valueIndex;
+        markSelected(raw);
+      },
+    };
+  }
+
+  let wheels = {};
+  const DEFAULT_START_HOUR = 18;
+  const DEFAULT_END_HOUR = 'late';     // 終了の既定は「夜更かし」
+
+  function initWheels() {
+    const endLabels = END_HOURS.map(h => h === 'late' ? LATE_LABEL : String(h));
+    wheels.startHour = buildWheel(document.getElementById('wheelStartHour'), START_HOURS.map(String), START_HOURS.indexOf(DEFAULT_START_HOUR), () => {}, { loop: true });
+    wheels.startMinute = buildWheel(document.getElementById('wheelStartMinute'), MINUTES.map(m => pad2(m)), 0, () => {}, { loop: true });
+    wheels.endHour = buildWheel(document.getElementById('wheelEndHour'), endLabels, END_HOURS.indexOf(DEFAULT_END_HOUR), syncEndMinuteWheel, { loop: true });
+    endMinuteIsLate = null;
+    syncEndMinuteWheel();
+    document.getElementById('allDayCheck').checked = false;
+    applyAllDayState();
+  }
+
+  // 終了の「時」が夜更かしの間は、終了の「分」を「-」だけにする(分の指定に意味が無いため)
+  let endMinuteIsLate = null;
+  function syncEndMinuteWheel() {
+    const late = END_HOURS[wheels.endHour.getIndex()] === 'late';
+    if (late === endMinuteIsLate) return;
+    endMinuteIsLate = late;
+    const el = document.getElementById('wheelEndMinute');
+    wheels.endMinute = late
+      ? buildWheel(el, ['-'], 0, () => {}, { loop: false })
+      : buildWheel(el, MINUTES.map(m => pad2(m)), 0, () => {}, { loop: true });
+  }
+
+  // 「1日中暇」がオンの時は時刻ホイールを無効表示にする
+  function applyAllDayState() {
+    const on = document.getElementById('allDayCheck').checked;
+    document.querySelector('.picker-row').classList.toggle('disabled', on);
+    document.querySelector('.picker-labels').classList.toggle('disabled', on);
+  }
+  function isAllDayEntry(e) {
+    return e.startMin === ALL_DAY_START_MIN && e.endMin === ALL_DAY_END_MIN;
+  }
+
+  // ---------- モーダル ----------
+  let editingEntryId = null;
+
+  // 日またぎを考慮して時間帯の重なりを判定する
+  function normalizeRange(start, end) {
+    let e = end;
+    if (e <= start) e += 24 * 60;
+    return [start, e];
+  }
+  function rangesOverlap(aStart, aEnd, bStart, bEnd) {
+    const [as, ae] = normalizeRange(aStart, aEnd);
+    const [bs, be] = normalizeRange(bStart, bEnd);
+    return as < be && bs < ae;
+  }
+
+  // ホイールに指定の予定の時刻をセットする(自動編集モード/一覧からの選択で共通利用)
+  // (旧ルールで登録された 5時前開始・日またぎの予定も、新ルールで選べる一番近い値に寄せて表示する)
+  function loadEntryIntoWheels(entry) {
+    // 1日中暇の予定はチェックボックスだけオンにして、ホイールは既定値に戻す
+    const allDay = isAllDayEntry(entry);
+    document.getElementById('allDayCheck').checked = allDay;
+    applyAllDayState();
+    if (allDay) {
+      wheels.startHour.setIndex(START_HOURS.indexOf(DEFAULT_START_HOUR));
+      wheels.startMinute.setIndex(0);
+      wheels.endHour.setIndex(END_HOURS.indexOf(DEFAULT_END_HOUR));
+      syncEndMinuteWheel();
+      wheels.endMinute.setIndex(0);
+      return;
+    }
+
+    const startHour = Math.max(DAY_START_HOUR, Math.floor(entry.startMin / 60));
+    wheels.startHour.setIndex(START_HOURS.indexOf(Math.min(23, startHour)));
+    wheels.startMinute.setIndex(startHour === Math.floor(entry.startMin / 60) ? Math.max(0, MINUTES.indexOf(entry.startMin % 60)) : 0);
+
+    let endHour, endMinute = entry.endMin % 60;
+    if (entry.endMin >= LATE_MIN || entry.endMin <= entry.startMin) {
+      endHour = 'late'; endMinute = 0;          // 夜更かし、または旧データの日またぎ
+    } else if (entry.endMin >= END_OF_DAY_MIN) {
+      endHour = 24; endMinute = 0;
+    } else {
+      endHour = Math.max(DAY_START_HOUR, Math.floor(entry.endMin / 60));
+    }
+    wheels.endHour.setIndex(END_HOURS.indexOf(endHour));
+    syncEndMinuteWheel();
+    wheels.endMinute.setIndex(endHour === 'late' ? 0 : Math.max(0, MINUTES.indexOf(endMinute)));
+  }
+
+  // 一覧で自分の予定をクリックした時、その予定を編集対象として選択する
+  function selectEntryForEdit(id) {
+    const entry = (schedule[activeDateStr] || []).find(e => e.id === id && e.person === CURRENT_USER);
+    if (!entry) return;
+    editingEntryId = id;
+    loadEntryIntoWheels(entry);
+    updateAddButtonLabel();
+    renderEntryList();
+  }
+
+  async function openModal(ds) {
+    activeDateStr = ds;
+    editingEntryId = null;
+    const [y, m, d] = ds.split('-').map(Number);
+    const dow = new Date(y, m - 1, d).getDay();
+    document.getElementById('modalTitle').textContent = `${m}月${d}日(${WEEKDAY_LABELS[dow]})`;
+    document.getElementById('overlay').hidden = false;
+
+    schedule = await fetchSchedule(); // 他のURLで追加された最新の内容を取得
+
+    initWheels();
+    // 自分の予定があれば、一番早い時間帯のものを編集モードで開く(複数ある場合も基準を明確にする)。
+    // 別の予定を編集したい時は一覧からクリックして選び直せる
+    const ownEntries = (schedule[activeDateStr] || []).filter(e => e.person === CURRENT_USER);
+    if (ownEntries.length > 0) {
+      const earliest = ownEntries.slice().sort((a, b) => a.startMin - b.startMin)[0];
+      editingEntryId = earliest.id;
+      loadEntryIntoWheels(earliest);
+    }
+    updateAddButtonLabel();
+    renderEntryList();
+  }
+
+  function closeModal() {
+    document.getElementById('overlay').hidden = true;
+    activeDateStr = null;
+    editingEntryId = null;
+    renderCalendar();
+  }
+
+  function updateAddButtonLabel() {
+    document.getElementById('addEntryBtn').textContent = editingEntryId ? '更新する' : '時間を登録';
+    // 既存の予定を編集中の時だけ、別枠での新規登録ボタンを出す
+    document.getElementById('addSeparateBtn').hidden = !editingEntryId;
+  }
+
+  // forceNew=false: 編集中の予定があればそれを上書き、無ければ新規追加(通常の登録・更新ボタン)
+  // forceNew=true : 編集中の予定があっても上書きせず、必ず新規の別予定として追加(「別で時間を登録」ボタン)
+  async function submitEntry(forceNew) {
+    if (!activeDateStr || !CURRENT_USER) return;
+    const allDay = document.getElementById('allDayCheck').checked;
+    const startHour = START_HOURS[wheels.startHour.getIndex()];
+    const startMinute = MINUTES[wheels.startMinute.getIndex()];
+    const endHour = END_HOURS[wheels.endHour.getIndex()];
+    const endMinute = endHour === 'late' ? 0 : MINUTES[wheels.endMinute.getIndex()];
+    // 1日中暇は 5:00〜夜更かし。終了が 24時 / 夜更かし の時は分を無視する
+    const startMin = allDay ? ALL_DAY_START_MIN : startHour * 60 + startMinute;
+    const endMin = allDay ? ALL_DAY_END_MIN
+      : endHour === 'late' ? LATE_MIN
+      : endHour === 24 ? END_OF_DAY_MIN
+      : endHour * 60 + endMinute;
+
+    // 日またぎは「夜更かし」で表すので、終了は必ず開始より後
+    if (endMin <= startMin) {
+      alert('終了時刻が開始時刻より前になっています。開始・終了の時刻を確認してください。');
+      return;
+    }
+
+    if (!schedule[activeDateStr]) schedule[activeDateStr] = [];
+    const target = (!forceNew && editingEntryId)
+      ? schedule[activeDateStr].find(e => e.id === editingEntryId && e.person === CURRENT_USER)
+      : null;
+
+    let ok;
+    if (target) {
+      ok = await postAction('update', { date: activeDateStr, id: target.id, startMin, endMin });
+    } else {
+      // 新規追加の時は、既に登録済みの自分の予定と時間が重なっていないか確認する
+      const conflict = schedule[activeDateStr].some(e =>
+        e.person === CURRENT_USER && rangesOverlap(startMin, endMin, e.startMin, e.endMin)
+      );
+      if (conflict) {
+        alert('その時間は既に登録済みの予定と重なっています。時間を確認してください。');
+        return;
+      }
+      ok = await postAction('add', { date: activeDateStr, startMin, endMin });
+    }
+    if (!ok) return;
+    editingEntryId = null;
+    closeModal(); // 押したらポップアップを閉じる
+  }
+
+  async function deleteEntry(id) {
+    if (!activeDateStr || !schedule[activeDateStr]) return;
+    const entry = schedule[activeDateStr].find(e => e.id === id);
+    if (!entry || entry.person !== CURRENT_USER) return; // 自分の予定だけ削除可能
+    if (!await postAction('delete', { date: activeDateStr, id })) return;
+
+    // 削除後、自分の予定が残っていれば一番早いものにフォーカスし直す。無ければ新規登録モードに戻す
+    const remainingOwn = (schedule[activeDateStr] || []).filter(e => e.person === CURRENT_USER);
+    if (remainingOwn.length > 0) {
+      const earliest = remainingOwn.slice().sort((a, b) => a.startMin - b.startMin)[0];
+      editingEntryId = earliest.id;
+      loadEntryIntoWheels(earliest);
+    } else {
+      editingEntryId = null;
+    }
+    updateAddButtonLabel();
+    renderEntryList();
+  }
+
+  function renderEntryList() {
+    const list = document.getElementById('entryList');
+    list.innerHTML = '';
+    // 時間帯が早い順に並べる
+    const entries = (schedule[activeDateStr] || []).slice().sort((a, b) => a.startMin - b.startMin);
+    if (entries.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'entry-empty';
+      empty.textContent = 'まだ登録されていません。';
+      list.appendChild(empty);
+      return;
+    }
+    entries.forEach(e => {
+      const isOwn = e.person === CURRENT_USER;
+      const row = document.createElement('div');
+      row.className = 'entry-row' + (e.id === editingEntryId ? ' editing' : '') + (isOwn ? '' : ' foreign');
+      const label = document.createElement('span');
+      label.innerHTML = `${nameChip(e.person)} ${formatRange(e.startMin, e.endMin, '〜')}`;
+      row.appendChild(label);
+      if (isOwn) {
+        row.style.cursor = 'pointer';
+        row.onclick = () => selectEntryForEdit(e.id);
+        const del = document.createElement('button');
+        del.className = 'del';
+        del.textContent = '×';
+        del.onclick = (ev) => { ev.stopPropagation(); deleteEntry(e.id); };
+        row.appendChild(del);
+      }
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'overlay') closeModal();
+  });
+
+  // 登録済みのユーザーと人数(ハイライトの割合の分母)を説明文の上に一覧表示する
+  function renderUserList() {
+    const el = document.getElementById('userList');
+    const items = users
+      .map(u => `<span class="user-list-item">${escapeHtml(u.name)}</span>`)
+      .join('');
+    el.innerHTML = `<p class="user-list-title">登録ユーザー(${users.length}人)</p><div class="user-list-items">${items}</div>`;
+  }
+
+  // ---------- ログイン ----------
+  function showLogin() {
+    const input = document.getElementById('loginName');
+    let last = CURRENT_USER || '';
+    if (!last) {
+      try { last = localStorage.getItem(LAST_NAME_KEY) || ''; } catch (e) {}
+    }
+    input.value = last;
+    document.getElementById('loginError').hidden = true;
+    document.getElementById('loginOverlay').hidden = false;
+    input.focus();
+    input.select();
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const name = document.getElementById('loginName').value.trim();
+    const errorEl = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
+    if (!name) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', name }),
+      });
+      if (!res.ok) throw new Error('login failed: ' + res.status);
+      const { user, data } = await res.json();
+      CURRENT_USER = user.name; // 登録済みなら登録時の表記に揃う
+      users = data.users;
+      schedule = data.schedule;
+      try { localStorage.setItem(LAST_NAME_KEY, user.name); } catch (e) {}
+      document.getElementById('loginOverlay').hidden = true;
+      renderCalendar();
+    } catch (e) {
+      console.error('ログインに失敗しました', e);
+      errorEl.textContent = 'ログインに失敗しました。名前(20文字以内)と通信環境を確認してください。';
+      errorEl.hidden = false;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  refreshAndRender();
+  showLogin();
+</script>
+</body>
+</html>
