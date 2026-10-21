@@ -249,15 +249,15 @@
   /* 登録人数に対する一致人数の割合で青の濃さを変える(100%: 濃い / 70%以上: 普通) */
   .summary-line.tier-normal { background: #86aaf0; }
   .summary-line.tier-dark { background: #4a7fe0; }
-  /* 一致人数 / 全登録者数(時刻の後ろに表示) */
+  /* 一致人数 / 全登録者数。名前のチップと見分けやすいよう、背景なしの数字で時刻の行の右端に置く */
   .match-count {
-    display: inline-block;
+    float: right;
     margin-left: 8px;
-    padding: 0 0.5em;
-    font-size: 0.85em;
-    background: rgba(0, 0, 0, 0.16);
-    border-radius: 4px;
+    font-size: 1.05em;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
   }
+  .match-count small { font-size: 0.7em; font-weight: 700; margin-left: 1px; }
   /* ユーザー名のチップ(アイコンの代わり)。長い名前は省略表示する */
   .name-chip {
     display: inline-block;
@@ -923,7 +923,7 @@
         const s = document.createElement('div');
         s.className = 'summary-line tier-' + seg.tier;
         const icons = seg.icons.map(nameChip).join(' ');
-        const count = `<span class="match-count">${seg.icons.length}/${users.length}人</span>`;
+        const count = `<span class="match-count">${seg.icons.length}/${users.length}<small>人</small></span>`;
         s.innerHTML = `${icons}\n${formatRange(seg.start, seg.end, ' ~ ')}${count}`;
         matchCol.appendChild(s);
       });
