@@ -580,22 +580,30 @@
   }
   .login-user-btn:hover { background: var(--key-hover); }
   .login-user-btn.current { outline: 2px solid var(--accent); }
-  .switch-user-btn {
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    font-size: 12px;
-    text-decoration: underline;
-    cursor: pointer;
-    margin-left: 4px;
-    padding: 0;
+  /* 「ログイン」「切り替え」「ユーザー削除」はログイン中の名前の下の行に、小さめのボタンとして並べる */
+  .user-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 6px;
   }
-  .switch-user-btn:hover { color: var(--text); }
-  /* ログイン中だけ「切り替え」の横に出す。押し間違えないよう控えめな見た目+確認ダイアログ付き */
-  /* 「切り替え」「ユーザー削除」はログイン中の名前の下の行に並べる */
-  .user-actions { margin-top: 4px; }
-  .switch-user-btn.delete-user-btn { margin-left: 12px; }
-  .switch-user-btn.delete-user-btn:hover { color: var(--danger); }
+  .switch-user-btn {
+    border: 1px solid var(--border);
+    background: var(--key);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .switch-user-btn:hover { background: var(--key-hover); }
+  /* 未ログインの時の「ログイン」は押してほしいので目立たせる */
+  .switch-user-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .switch-user-btn.primary:hover { background: var(--accent-hover); }
+  /* 削除は押し間違えないよう、塗りなしの赤い枠だけにする(押すと確認ダイアログ) */
+  .switch-user-btn.delete-user-btn { background: transparent; color: var(--danger); border-color: rgba(242, 139, 130, 0.5); }
+  .switch-user-btn.delete-user-btn:hover { background: rgba(242, 139, 130, 0.12); }
   .switch-user-btn[hidden] { display: none; }
   .notice-login-btn {
     flex-shrink: 0;
@@ -660,7 +668,7 @@
     </div>
     <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><div class="user-actions"><button class="switch-user-btn" id="switchUserBtn" onclick="showLogin()">ログイン</button><button class="switch-user-btn delete-user-btn" id="deleteUserBtn" onclick="deleteUser(CURRENT_USER)" hidden>ユーザー削除</button></div></div>
     <div id="userList" class="user-list"></div>
-    <p class="sub">各日付をタップして時間を追加してください。<br>同日に複数の時間帯を追加する場合、追加したい時間を選択後に<strong>別の時間として登録</strong>をクリックしてください。<br>登録人数の<strong>70%以上</strong>、<strong>全員</strong>の時間が重なるとハイライトされます。</p>
+    <p class="sub">各日付をタップして、参加できる時間を登録してください。<br>同じ日に複数の時間帯を登録するときは、時間を選んでから「別の時間として登録」を押してください。<br>登録人数の<strong>70%以上</strong>がそろう時間はハイライトされ、人数が多いほど濃く、<strong>全員</strong>そろうと枠付きで表示されます。</p>
     <div class="schedule-list" id="scheduleList"></div>
   </div>
 
@@ -840,7 +848,9 @@
     el.innerHTML = CURRENT_USER
       ? `<span class="badge-name">${escapeHtml(CURRENT_USER)}</span>でログイン中`
       : '未ログイン(閲覧のみ)';
-    document.getElementById('switchUserBtn').textContent = CURRENT_USER ? '切り替え' : 'ログイン';
+    const switchBtn = document.getElementById('switchUserBtn');
+    switchBtn.textContent = CURRENT_USER ? '切り替え' : 'ログイン';
+    switchBtn.classList.toggle('primary', !CURRENT_USER);
     document.getElementById('deleteUserBtn').hidden = !CURRENT_USER;
   }
 
