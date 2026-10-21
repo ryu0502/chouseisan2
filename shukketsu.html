@@ -24,6 +24,7 @@
     --match-bg: rgba(138, 180, 248, 0.14);
     --match-border: rgba(138, 180, 248, 0.4);
     --wheel-w: 60px;
+    --item-h: 36px;     /* 時刻ホイール1行の高さ(画面が低い時は小さくする) */
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; overflow-x: hidden; }
@@ -430,14 +431,14 @@
   .wheel-wrap {
     position: relative;
     width: var(--wheel-w);
-    height: 180px;
+    height: calc(var(--item-h) * 5);
     flex-shrink: 0;
   }
   .wheel-highlight {
     position: absolute;
     left: 0; right: 0;
-    top: 72px;
-    height: 36px;
+    top: calc(var(--item-h) * 2);
+    height: var(--item-h);
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     background: rgba(138,180,248,0.12);
@@ -449,7 +450,7 @@
     height: 100%;
     overflow-y: scroll;
     scroll-snap-type: y mandatory;
-    padding: 72px 0;
+    padding: calc(var(--item-h) * 2) 0;
     scrollbar-width: none;
     -ms-overflow-style: none;
     cursor: grab;
@@ -463,7 +464,7 @@
     scroll-snap-type: none;
   }
   .wheel-item {
-    height: 36px;
+    height: var(--item-h);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -671,6 +672,34 @@
   }
 
   /* ---- スマホ表示向けの調整 ---- */
+  /* ---- 縦が低い画面(ノートPCなど)向け: ポップアップが一画面に収まるよう全体を詰める ---- */
+  @media (max-height: 760px) {
+    :root { --item-h: 28px; }
+    body { padding: 10px; }
+    .app { padding: 14px 18px; }
+    .modal { padding: 14px 18px; border-radius: 16px; }
+    .modal.login-modal { padding: 18px 22px 20px; }
+    .modal-header { margin-bottom: 8px; }
+    .modal-header h2 { font-size: 15px; }
+    .login-modal .modal-header h2 { font-size: 16px; }
+    .close-btn { width: 26px; height: 26px; font-size: 13px; }
+    .login-note { font-size: 12px; margin-bottom: 12px; line-height: 1.5; }
+    .login-input { padding: 9px 12px; margin-bottom: 10px; }
+    .login-users-title { padding-top: 10px; margin: 4px 0 8px; }
+    .login-users { gap: 6px; }
+    .login-user-btn { font-size: 13px; padding: 6px 12px; }
+    .picker-labels { margin-bottom: 0; }
+    .picker-row { padding: 2px 0 4px; }
+    .wheel-item { font-size: 14px; }
+    .allday-row { margin: 2px 0 8px; font-size: 13px; }
+    .add-entry-btn { font-size: 14px; padding: 9px 0; margin-bottom: 10px; border-radius: 10px; }
+    .add-separate-btn { font-size: 13px; padding: 7px 0; margin: -4px 0 10px; border-radius: 10px; }
+    .entry-list-title { margin-bottom: 6px; }
+    .entry-row { padding: 5px 10px; margin-bottom: 4px; font-size: 13px; }
+    .entry-row .del { width: 26px; height: 26px; font-size: 16px; }
+    .readonly-notice { padding: 8px 10px; margin-bottom: 10px; }
+  }
+
   @media (max-width: 480px) {
     :root {
       --wheel-w: 52px;
@@ -1067,9 +1096,9 @@
   }
 
   // ---------- ホイールピッカー ----------
-  const ITEM_H = 36;
-
   function buildWheel(containerEl, items, initialIndex, onChange, options) {
+    // 1行の高さはCSS変数に合わせる(画面の高さによって変わる)
+    const ITEM_H = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--item-h')) || 36;
     const loop = !!(options && options.loop);
     const N = items.length;
     const REPEAT = loop ? 9 : 1;      // ループ用に同じ並びを複製して無限スクロールに見せる
