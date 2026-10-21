@@ -205,13 +205,20 @@
     color: var(--bg);
   }
 
+  /* ハイライト(左列)と個人の時間(右列)を横に並べる。スマホ幅では縦に積む */
   .day-content {
     flex: 1;
     min-width: 0;
     display: flex;
+    gap: 12px;
+    padding-top: 2px;
+  }
+  .match-col {
+    flex: 3 1 0;
+    min-width: 0;
+    display: flex;
     flex-direction: column;
     gap: 3px;
-    padding-top: 2px;
   }
   /* アイコンごとに幅を揃えて時刻表示の位置を揃えつつ、背景の丸チップでアイコン自体も見やすくする。
      色付き絵文字には影響しないが、「衣」のような文字アイコンの色を白に統一する */
@@ -240,9 +247,21 @@
     border-radius: 4px;
   }
   /* 登録人数に対する一致人数の割合で青の濃さを変える(80%以上: 濃い / 60%以上: 普通 / 40%以上: 薄い) */
-  .summary-line.tier-light { background: #e6eefd; }
-  .summary-line.tier-normal { background: #b3cdfa; }
+  /* 40%は背景になじむ半透明の青で控えめに、60%は濃い色に近い青にする */
+  .summary-line.tier-light { background: rgba(138, 180, 248, 0.16); color: var(--text); }
+  .summary-line.tier-light .name-chip,
+  .summary-line.tier-light .match-count { background: rgba(255, 255, 255, 0.08); }
+  .summary-line.tier-normal { background: #86aaf0; }
   .summary-line.tier-dark { background: #4a7fe0; }
+  /* 一致人数 / 全登録者数(時刻の後ろに表示) */
+  .match-count {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 0 0.5em;
+    font-size: 0.85em;
+    background: rgba(0, 0, 0, 0.16);
+    border-radius: 4px;
+  }
   /* ユーザー名のチップ(アイコンの代わり)。長い名前は省略表示する */
   .name-chip {
     display: inline-block;
@@ -261,13 +280,13 @@
   .entry-row .name-chip { background: rgba(0, 0, 0, 0.25); }
   /* 一致していない単独の予定: 控えめな表示でコントラストをつける。横幅を活かして2列に並べる */
   .solo-wrap {
+    flex: 2 1 0;
+    min-width: 0;
     display: flex;
-    flex-wrap: wrap;
-    gap: 2px 10px;
+    flex-direction: column;
+    gap: 2px;
   }
   .summary-line-solo {
-    flex: 1 1 45%;
-    min-width: 100px;
     font-size: 13px;
     line-height: 1.4;
     color: var(--muted);
@@ -596,7 +615,10 @@
     .day-date .num { font-size: 11.5px; width: 22px; height: 22px; line-height: 22px; }
     .day-date .dow { font-size: 9.5px; }
     .summary-line { font-size: 12.5px; padding: 1px 4px; }
-    .summary-line-solo { font-size: 11px; min-width: 80px; }
+    .day-content { flex-direction: column; gap: 3px; }
+    .match-col:empty { display: none; }
+    .solo-wrap { flex-direction: row; flex-wrap: wrap; gap: 2px 10px; }
+    .summary-line-solo { flex: 1 1 45%; font-size: 11px; min-width: 80px; }
     .modal { padding: 14px; border-radius: 16px; }
     .picker-row { gap: 6px; }
     .picker-labels { gap: 6px; font-size: 9.5px; }
@@ -898,12 +920,17 @@
       const { matched } = computeDaySummaries(schedule[ds]);
       const inputs = sortedEntries(schedule[ds]);
       if (matched.length > 0) row.classList.add('has-match');
+      // 個人の時間があればハイライトが無い日も左列を確保して、右列の位置を日ごとに揃える
+      const matchCol = document.createElement('div');
+      matchCol.className = 'match-col';
+      if (matched.length > 0 || inputs.length > 0) content.appendChild(matchCol);
       matched.forEach(seg => {
         const s = document.createElement('div');
         s.className = 'summary-line tier-' + seg.tier;
         const icons = seg.icons.map(nameChip).join(' ');
-        s.innerHTML = `${icons}\n${formatRange(seg.start, seg.end, ' ~ ')}`;
-        content.appendChild(s);
+        const count = `<span class="match-count">${seg.icons.length}/${users.length}人</span>`;
+        s.innerHTML = `${icons}\n${formatRange(seg.start, seg.end, ' ~ ')}${count}`;
+        matchCol.appendChild(s);
       });
       if (inputs.length > 0) {
         const soloWrap = document.createElement('div');
