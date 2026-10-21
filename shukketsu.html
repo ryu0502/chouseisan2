@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>調整さん2</title>
+<title>調整さん改</title>
 <style>
   /* Chromeのダークモード風の配色に固定(OS/ブラウザの設定に関わらず常にこの配色) */
   :root {
@@ -249,10 +249,9 @@
   /* 登録人数に対する一致人数の割合で青の濃さを変える(100%: 濃い / 70%以上: 普通) */
   .summary-line.tier-normal { background: #86aaf0; }
   .summary-line.tier-dark { background: #4a7fe0; }
-  /* 一致人数 / 全登録者数。名前のチップと見分けやすいよう、背景なしの数字で時刻の行の右端に置く */
+  /* 一致人数 / 全登録者数。名前のチップと見分けやすいよう背景なしの数字にし、時刻のすぐ後ろに置く */
   .match-count {
-    float: right;
-    margin-left: 8px;
+    margin-left: 12px;
     font-size: 1.05em;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
@@ -564,6 +563,24 @@
   }
   .login-user-btn:hover { background: var(--key-hover); }
   .login-user-btn.current { outline: 2px solid var(--accent); }
+  /* 名前ボタンの右に小さな削除ボタンをくっつける */
+  .login-user {
+    display: inline-flex;
+    align-items: center;
+  }
+  .login-user .login-user-btn { border-radius: 999px 0 0 999px; padding-right: 10px; }
+  .login-user-del {
+    border: none;
+    background: var(--key);
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1;
+    padding: 9px 11px 9px 6px;
+    border-radius: 0 999px 999px 0;
+    cursor: pointer;
+    align-self: stretch;
+  }
+  .login-user-del:hover { color: var(--danger); background: rgba(242, 139, 130, 0.16); }
   .switch-user-btn {
     border: none;
     background: transparent;
@@ -627,7 +644,7 @@
 <body>
   <div class="app">
     <div class="app-header">
-      <h1 class="app-title">調整さん2</h1>
+      <h1 class="app-title">調整さん改</h1>
       <div class="header-right">
         <span id="monthLabel" class="month-label"></span>
         <div class="nav-group">
@@ -1306,13 +1323,53 @@
     el.innerHTML = '';
     const current = CURRENT_USER || lastLoginName;
     list.forEach(u => {
+      const wrap = document.createElement('span');
+      wrap.className = 'login-user';
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'login-user-btn' + (u.name === current ? ' current' : '');
       btn.textContent = u.name;
       btn.onclick = () => login(u.name, '');
-      el.appendChild(btn);
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'login-user-del';
+      del.title = `${u.name} を削除`;
+      del.textContent = '×';
+      del.onclick = () => deleteUser(u.name);
+      wrap.appendChild(btn);
+      wrap.appendChild(del);
+      el.appendChild(wrap);
     });
+  }
+
+  // ユーザーを削除する(そのユーザーが登録した時間もすべて消える)
+  async function deleteUser(name) {
+    const count = Object.values(schedule).flat().filter(e => e.person === name).length;
+    const msg = `「${name}」を削除しますか?` + (count ? `\n登録されている時間(${count}件)もすべて消えます。` : '') + '\nこの操作は元に戻せません。';
+    if (!confirm(msg)) return;
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteUser', name }),
+      });
+      if (!res.ok) throw new Error('delete failed: ' + res.status);
+      const { data } = await res.json();
+      users = data.users;
+      schedule = data.schedule;
+    } catch (e) {
+      console.error('ユーザーの削除に失敗しました', e);
+      alert('削除に失敗しました。通信環境を確認してもう一度お試しください。');
+      return;
+    }
+    // 自分自身を消した時はログアウトして閲覧のみに戻す
+    if (name === CURRENT_USER) CURRENT_USER = null;
+    if (name === lastLoginName) {
+      lastLoginName = '';
+      try { localStorage.removeItem(LAST_NAME_KEY); } catch (e) {}
+    }
+    updateKanaField();
+    renderCalendar();
   }
 
   // 未登録の名前が入力されている時だけ、よみがな欄を出す

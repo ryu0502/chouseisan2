@@ -85,6 +85,19 @@ export async function onRequestPost({ request, env }) {
 
   const user = findUser(data, name);
   if (!user) return json({ error: 'unknown user' }, 403);
+
+  if (body.action === 'deleteUser') {
+    // ユーザーと、そのユーザーが登録した時間をすべて消す
+    data.users = data.users.filter(u => u !== user);
+    for (const date of Object.keys(data.schedule)) {
+      const rest = data.schedule[date].filter(e => e.person !== user.name);
+      if (rest.length > 0) data.schedule[date] = rest;
+      else delete data.schedule[date];
+    }
+    await env.SCHEDULE_KV.put(KEY, JSON.stringify(data));
+    return json({ ok: true, data });
+  }
+
   if (!validDate(body.date)) return json({ error: 'invalid date' }, 400);
   const day = data.schedule[body.date] || [];
 
