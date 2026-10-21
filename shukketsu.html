@@ -430,6 +430,9 @@
   }
   .wheel-wrap {
     position: relative;
+    /* 上下の端を背景に溶け込ませ、丸いリールの奥に回り込んでいくように見せる */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 28%, #000 72%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 28%, #000 72%, transparent 100%);
     width: var(--wheel-w);
     height: calc(var(--item-h) * 5);
     flex-shrink: 0;
@@ -472,10 +475,13 @@
     color: var(--muted);
     scroll-snap-align: center;
     user-select: none;
+    backface-visibility: hidden;
+    will-change: transform, opacity;
   }
   .wheel-item.selected {
     color: var(--text);
     font-weight: 700;
+    font-size: 1.12em;
   }
   .wheel-item.long { font-size: 12px; letter-spacing: -0.5px; }
 
@@ -511,6 +517,10 @@
   .add-separate-btn:hover { background: var(--key); }
   .add-separate-btn:active { transform: scale(0.98); }
   .add-separate-btn[hidden] { display: none; } /* display:block より hidden を優先させる */
+  /* 「更新する」と「別の時間として登録」は横に並べて縦の幅を節約する */
+  .entry-buttons { display: flex; gap: 8px; margin-bottom: 14px; }
+  .entry-buttons .add-entry-btn,
+  .entry-buttons .add-separate-btn { flex: 1 1 0; margin: 0; }
 
   /* 「終日可」チェックボックス(時間を登録ボタンの上) */
   .allday-row {
@@ -535,15 +545,18 @@
     font-weight: 600;
     margin: 0 0 8px;
   }
+  /* 登録している時間は横に並ぶチップにして、何件あっても縦に場所をとらないようにする */
+  #entryList { display: flex; flex-wrap: wrap; gap: 6px; }
   .entry-row {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 8px;
     background: var(--key);
-    border-radius: 10px;
-    padding: 8px 10px;
-    margin-bottom: 6px;
+    border-radius: 999px;
+    padding: 4px 4px 4px 14px;
     font-size: 13.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
   .entry-row.editing {
     box-shadow: inset 0 0 0 2px var(--accent);
@@ -558,9 +571,9 @@
     border: none;
     background: rgba(242, 139, 130, 0.16);
     color: var(--danger);
-    font-size: 19px;
-    width: 30px;
-    height: 30px;
+    font-size: 16px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     cursor: pointer;
     padding: 0;
@@ -695,8 +708,9 @@
     .add-entry-btn { font-size: 14px; padding: 9px 0; margin-bottom: 10px; border-radius: 10px; }
     .add-separate-btn { font-size: 13px; padding: 7px 0; margin: -4px 0 10px; border-radius: 10px; }
     .entry-list-title { margin-bottom: 6px; }
-    .entry-row { padding: 5px 10px; margin-bottom: 4px; font-size: 13px; }
-    .entry-row .del { width: 26px; height: 26px; font-size: 16px; }
+    .entry-buttons { margin-bottom: 10px; }
+    .entry-row { padding: 3px 3px 3px 12px; font-size: 13px; }
+    .entry-row .del { width: 24px; height: 24px; font-size: 15px; }
     .readonly-notice { padding: 8px 10px; margin-bottom: 10px; }
   }
 
@@ -783,8 +797,10 @@
         </div>
 
         <label class="allday-row"><input type="checkbox" id="allDayCheck" onchange="applyAllDayState()">終日可</label>
-        <button class="add-entry-btn" id="addEntryBtn" onclick="submitEntry(false)">時間を登録</button>
-        <button class="add-separate-btn" id="addSeparateBtn" onclick="submitEntry(true)" hidden>別の時間として登録</button>
+        <div class="entry-buttons">
+          <button class="add-entry-btn" id="addEntryBtn" onclick="submitEntry(false)">時間を登録</button>
+          <button class="add-separate-btn" id="addSeparateBtn" onclick="submitEntry(true)" hidden>別の時間として登録</button>
+        </div>
       </div>
 
       <p class="entry-list-title" id="entryListTitle">この日に登録している時間</p>
@@ -1130,6 +1146,39 @@
     }
     function rawFromValue(valueIndex) { return MIDDLE * N + valueIndex; }
 
+    // iPhoneのタイマーのように、文字が円筒に巻き付いて見えるよう各行を傾けて配置する。
+    // 中心からの距離(行数)に応じて円筒上の角度を決め、その角度での高さ位置・傾き・明るさにする
+    const STEP_DEG = 22;                                      // 1行ぶんの回転角
+    const RADIUS = ITEM_H / (2 * Math.sin(STEP_DEG * Math.PI / 360)); // 隣の行と弦の長さが1行ぶんになる半径
+    function renderDrum() {
+      let center = viewport.scrollTop / ITEM_H;               // 中央に来ている行(小数)
+      if (Math.abs(center - Math.round(center)) < 0.08) center = Math.round(center); // 1px未満のずれで傾かないように
+      const from = Math.max(0, Math.floor(center) - 4);
+      const to = Math.min(children.length - 1, Math.ceil(center) + 4);
+      for (let i = lastFrom; i <= lastTo; i++) {
+        if (i < from || i > to) children[i].style.visibility = 'hidden';
+      }
+      for (let i = from; i <= to; i++) {
+        const offset = i - center;
+        const deg = offset * STEP_DEG;
+        const el = children[i];
+        if (Math.abs(deg) >= 90) { el.style.visibility = 'hidden'; continue; }
+        const rad = deg * Math.PI / 180;
+        const dy = RADIUS * Math.sin(rad) - offset * ITEM_H;  // 円筒上の高さに寄せる
+        el.style.visibility = '';
+        el.style.transform = `perspective(${Math.round(RADIUS * 4)}px) translateY(${dy.toFixed(2)}px) rotateX(${(-deg).toFixed(2)}deg)`;
+        el.style.opacity = (0.25 + 0.75 * Math.pow(Math.cos(rad), 2)).toFixed(3);
+      }
+      lastFrom = from; lastTo = to;
+    }
+    let lastFrom = 0, lastTo = children.length - 1;
+    for (let i = 0; i < children.length; i++) children[i].style.visibility = 'hidden';
+    let drumFrame = 0;
+    function scheduleDrum() {
+      if (drumFrame) return;
+      drumFrame = requestAnimationFrame(() => { drumFrame = 0; renderDrum(); });
+    }
+
     let scrollTimer = null;
     let currentIndex = initialIndex;
     let dragging = false;
@@ -1155,6 +1204,7 @@
     }
 
     viewport.addEventListener('scroll', () => {
+      scheduleDrum();
       if (dragging) return; // ドラッグ中はpointerup側でスナップさせる
       clearTimeout(scrollTimer);
       scrollTimer = setTimeout(snapToNearest, 100);
@@ -1193,6 +1243,7 @@
       const raw = rawFromValue(initialIndex);
       viewport.scrollTop = raw * ITEM_H;
       markSelected(raw);
+      renderDrum();
     }
 
     return {
@@ -1202,6 +1253,7 @@
         viewport.scrollTop = raw * ITEM_H;
         currentIndex = valueIndex;
         markSelected(raw);
+        renderDrum();
       },
     };
   }
