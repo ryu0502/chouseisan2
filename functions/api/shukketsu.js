@@ -2,13 +2,12 @@
 // /2026_10_27-28_shukketsu ページ用の共有データ(登録ユーザー + 予定)。
 // 調整さん2と同じ "SCHEDULE_KV" バインディングを使い、別のキーに保存する。
 //
-// データ形式: { title, users: [{ name, kana, createdAt }], schedule: { 'YYYY-MM-DD': [{ id, person, startMin, endMin }] } }
+// データ形式: { title, users: [{ name, createdAt }], schedule: { 'YYYY-MM-DD': [{ id, person, startMin, endMin }] } }
 // 保存はクライアントから全体を送らず、操作(login / add / update / delete)単位でサーバ側で反映する。
 // (人数が増えても、古い画面から保存した人が他人の登録を消してしまうことが起きにくいように)
 
 const KEY = 'shukketsu-2026_10_27-28';
 const NAME_MAX = 20;
-const KANA_MAX = 30;
 const TITLE_MAX = 60;
 // 仕事の時間帯で使うので、登録できるのは 9:00〜17:30(30分刻み)
 const WORK_START_MIN = 9 * 60;
@@ -81,12 +80,11 @@ export async function onRequestPost({ request, env }) {
   const data = await load(env);
 
   if (body.action === 'login') {
-    // 既に登録済みならそのユーザー、未登録なら新規登録する(よみがなは50音順の並び用・任意)
+    // 既に登録済みならそのユーザー、未登録なら新規登録する
     let user = findUser(data, name);
     const isNew = !user;
     if (isNew) {
-      const kana = normalizeName(body.kana).slice(0, KANA_MAX);
-      user = { name, kana, createdAt: Date.now() };
+      user = { name, createdAt: Date.now() };
       data.users.push(user);
       await env.SCHEDULE_KV.put(KEY, JSON.stringify(data));
     }

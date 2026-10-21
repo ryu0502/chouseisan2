@@ -815,8 +815,7 @@
         <button type="button" class="close-btn" onclick="closeLogin()">×</button>
       </div>
       <p class="login-note">下の一覧から自分の名前をタップしてください。初めての人は名前を入力すると新規登録されます。</p>
-      <input class="login-input" id="loginName" maxlength="20" autocomplete="off" placeholder="例: 山田 太郎" required oninput="updateKanaField()">
-      <input class="login-input" id="loginKana" maxlength="30" autocomplete="off" placeholder="よみがな(例: やまだ たろう)※50音順の並びに使います" hidden>
+      <input class="login-input" id="loginName" maxlength="20" autocomplete="off" placeholder="例: 山田 太郎" required>
       <p class="login-error" id="loginError" hidden></p>
       <button class="add-entry-btn" type="submit" id="loginBtn">はじめる</button>
       <p class="login-users-title" id="loginUsersTitle"></p>
@@ -826,7 +825,7 @@
 
 <script>
   // アクセス時のポップアップで入力したユーザー名でログインする(未登録の名前なら新規登録)
-  let users = [];               // 登録順のユーザー一覧 [{name, kana, createdAt}]
+  let users = [];               // 登録順のユーザー一覧 [{name, createdAt}]
   let CURRENT_USER = null;      // ログイン中のユーザー名(予定の person にもこの名前が入る)
   const LAST_NAME_KEY = 'shukketsu-last-name'; // 次回ポップアップに前回の名前を入れておく用
 
@@ -835,10 +834,10 @@
     return String(str).replace(/[&<>"']/g, c => HTML_ESCAPES[c]);
   }
   function nameChip(name) { return `<span class="name-chip">${escapeHtml(name)}</span>`; }
-  // 50音順(よみがながあればそれで、無ければ名前そのもので並べる)
+  // 名前の50音順(日本語の並び順。漢字の名前は読みではなく文字コード順になる)
   const JA_COLLATOR = new Intl.Collator('ja');
   function sortedUsers() {
-    return users.slice().sort((a, b) => JA_COLLATOR.compare(a.kana || a.name, b.kana || b.name));
+    return users.slice().sort((a, b) => JA_COLLATOR.compare(a.name, b.name));
   }
   // 時間で並び順が決まらない時のタイブレーク用(50音順)
   function userOrder(name) {
@@ -1516,7 +1515,7 @@
       btn.type = 'button';
       btn.className = 'login-user-btn' + (u.name === current ? ' current' : '');
       btn.textContent = u.name;
-      btn.onclick = () => login(u.name, '');
+      btn.onclick = () => login(u.name);
       el.appendChild(btn);
     });
   }
@@ -1548,20 +1547,11 @@
       lastLoginName = '';
       try { localStorage.removeItem(LAST_NAME_KEY); } catch (e) {}
     }
-    updateKanaField();
     renderCalendar();
-  }
-
-  // 未登録の名前が入力されている時だけ、よみがな欄を出す
-  function updateKanaField() {
-    const key = nameKey(document.getElementById('loginName').value);
-    document.getElementById('loginKana').hidden = !key || users.some(u => nameKey(u.name) === key);
   }
 
   function showLogin() {
     document.getElementById('loginName').value = '';
-    document.getElementById('loginKana').value = '';
-    updateKanaField();
     renderLoginUsers();
     document.getElementById('loginError').hidden = true;
     document.getElementById('loginOverlay').hidden = false;
@@ -1576,10 +1566,10 @@
     ev.preventDefault();
     const name = document.getElementById('loginName').value.trim();
     if (!name) return;
-    login(name, document.getElementById('loginKana').value.trim());
+    login(name);
   });
 
-  async function login(name, kana) {
+  async function login(name) {
     const errorEl = document.getElementById('loginError');
     const btn = document.getElementById('loginBtn');
     btn.disabled = true;
@@ -1587,7 +1577,7 @@
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', name, kana }),
+        body: JSON.stringify({ action: 'login', name }),
       });
       if (!res.ok) throw new Error('login failed: ' + res.status);
       const { user, data } = await res.json();
