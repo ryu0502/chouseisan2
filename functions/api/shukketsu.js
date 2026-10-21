@@ -1,5 +1,6 @@
 // Cloudflare Pages Function: /api/shukketsu
-// /2026_10_27-28_shukketsu ページ用の共有データ(登録ユーザー + 予定)。
+// /attendance_confirmation ページ用の共有データ(表題 + 登録ユーザー + 予定)。
+// (保存キーは旧URL時代の名前のまま。変えると既存データが見えなくなる)
 // 調整さん2と同じ "SCHEDULE_KV" バインディングを使い、別のキーに保存する。
 //
 // データ形式: { title, users: [{ name, createdAt }], schedule: { 'YYYY-MM-DD': [{ id, person, startMin, endMin }] } }

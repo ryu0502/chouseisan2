@@ -1,7 +1,6 @@
-// /2026_10_27-28_shukketsu/ 配下(末尾スラッシュ付きなど)のパスでも shukketsu.html を返す。
-
-export async function onRequest({ request, env }) {
+// 旧URL /2026_10_27-28_shukketsu/ 配下。共有済みのリンクが切れないよう、新しいURLへ転送する。
+export async function onRequest({ request }) {
   const url = new URL(request.url);
-  url.pathname = '/shukketsu';
-  return env.ASSETS.fetch(new Request(url, request));
+  url.pathname = '/attendance_confirmation';
+  return Response.redirect(url.toString(), 301);
 }
