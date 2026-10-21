@@ -2,13 +2,14 @@
 // /2026_10_27-28_shukketsu ページ用の共有データ(登録ユーザー + 予定)。
 // 調整さん2と同じ "SCHEDULE_KV" バインディングを使い、別のキーに保存する。
 //
-// データ形式: { users: [{ name, kana, createdAt }], schedule: { 'YYYY-MM-DD': [{ id, person, startMin, endMin }] } }
+// データ形式: { title, users: [{ name, kana, createdAt }], schedule: { 'YYYY-MM-DD': [{ id, person, startMin, endMin }] } }
 // 保存はクライアントから全体を送らず、操作(login / add / update / delete)単位でサーバ側で反映する。
 // (人数が増えても、古い画面から保存した人が他人の登録を消してしまうことが起きにくいように)
 
 const KEY = 'shukketsu-2026_10_27-28';
 const NAME_MAX = 20;
 const KANA_MAX = 30;
+const TITLE_MAX = 60;
 // 仕事の時間帯で使うので、登録できるのは 9:00〜17:30(30分刻み)
 const WORK_START_MIN = 9 * 60;
 const WORK_END_MIN = 17 * 60 + 30;
@@ -64,6 +65,15 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'invalid json' }, 400);
   }
   if (typeof body !== 'object' || body === null) return json({ error: 'invalid body' }, 400);
+
+  if (body.action === 'setTitle') {
+    // 表題(何の調整か)はログインしていなくても誰でも書き換えられる
+    const title = normalizeName(body.title).slice(0, TITLE_MAX);
+    const data = await load(env);
+    data.title = title;
+    await env.SCHEDULE_KV.put(KEY, JSON.stringify(data));
+    return json({ ok: true, data });
+  }
 
   const name = normalizeName(body.name);
   if (!name || name.length > NAME_MAX) return json({ error: 'invalid name' }, 400);

@@ -31,10 +31,10 @@
     background: var(--bg);
     color: var(--text);
     font-family: "Google Sans", "Segoe UI", "Hiragino Sans", system-ui, sans-serif;
-    padding: 24px;
+    padding: 16px;
   }
   .app {
-    max-width: 780px;
+    max-width: 820px;
     margin: 0 auto;
     background: var(--panel);
     border-radius: 12px;
@@ -50,7 +50,7 @@
     margin-bottom: 2px;
   }
   .app-title {
-    font-size: 39px;
+    font-size: 28px;
     font-weight: 700;
     margin: 0;
     white-space: nowrap;
@@ -69,7 +69,7 @@
     flex-shrink: 0;
   }
   .month-label {
-    font-size: 26px;
+    font-size: 19px;
     font-weight: 700;
     white-space: nowrap;
   }
@@ -82,8 +82,8 @@
     border: none;
     background: transparent;
     color: var(--text);
-    width: 34px;
-    height: 34px;
+    width: 28px;
+    height: 28px;
     padding: 0;
     margin: 0;
     display: flex;
@@ -122,6 +122,25 @@
   }
 
   /* ---- ユーザー一覧 ---- */
+  /* 表題(何の調整か)。誰でもその場で書き換えられるが、普段は入力欄に見えないよう枠も背景もなしにする */
+  .event-title {
+    display: block;
+    width: 100%;
+    font: inherit;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed transparent;
+    border-radius: 0;
+    padding: 2px 0;
+    margin: 0 0 10px;
+    outline: none;
+  }
+  .event-title::placeholder { color: var(--muted); font-weight: 600; }
+  .event-title:hover { border-bottom-color: var(--border); }
+  .event-title:focus { border-bottom: 1px solid var(--accent); }
   .user-list {
     margin: 0 0 14px;
   }
@@ -239,7 +258,7 @@
   .icon-fixed + .icon-fixed { margin-left: 3px; }
   /* 一致(2人以上)のサマリ: イベントバー風の強めのバッジ表示。アイコン行と時刻行で改行する(通常の1.3倍サイズ) */
   .summary-line {
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.4;
     color: var(--bg);
     font-weight: 700;
@@ -630,9 +649,10 @@
     }
     body { padding: 10px; }
     .app { padding: 14px; border-radius: 10px; }
-    .app-title { font-size: 32px; }
+    .app-title { font-size: 24px; }
+    .event-title { font-size: 17px; }
     .header-right { padding: 2px 3px 2px 10px; margin-left: 8px; }
-    .month-label { font-size: 18px; }
+    .month-label { font-size: 16px; }
     .nav-btn { width: 28px; height: 28px; font-size: 15px; }
     .user-badge { font-size: 11px; padding: 3px 10px; }
     .sub { font-size: 11.5px; margin-bottom: 8px; }
@@ -667,6 +687,7 @@
       </div>
     </div>
     <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><div class="user-actions"><button class="switch-user-btn" id="switchUserBtn" onclick="showLogin()">ログイン</button><button class="switch-user-btn delete-user-btn" id="deleteUserBtn" onclick="deleteUser(CURRENT_USER)" hidden>ユーザー削除</button></div></div>
+    <input id="eventTitle" class="event-title" maxlength="60" placeholder="何の調整かを入力(クリックで編集)" autocomplete="off" onchange="saveTitle()" onkeydown="if (event.key === 'Enter') this.blur()">
     <div id="userList" class="user-list"></div>
     <p class="sub">各日付をタップして、参加できる時間を登録してください。<br>同じ日に複数の時間帯を登録するときは、時間を選んでから「別の時間として登録」を押してください。<br>登録人数の<strong>70%以上</strong>がそろう時間はハイライトされ、人数が多いほど濃く、<strong>全員</strong>そろうと枠付きで表示されます。</p>
     <div class="schedule-list" id="scheduleList"></div>
@@ -796,6 +817,7 @@
       if (!res.ok) throw new Error('fetch failed: ' + res.status);
       const data = await res.json();
       users = data.users || [];
+      eventTitle = data.title || '';
       return data.schedule || {};
     } catch (e) {
       console.error('スケジュールの取得に失敗しました', e);
@@ -815,11 +837,39 @@
       const { data } = await res.json();
       users = data.users;
       schedule = data.schedule;
+      eventTitle = data.title || '';
       return true;
     } catch (e) {
       console.error('スケジュールの保存に失敗しました', e);
       alert('保存に失敗しました。通信環境を確認してもう一度お試しください。');
       return false;
+    }
+  }
+
+  // ---------- 表題 ----------
+  let eventTitle = '';
+  function renderTitle() {
+    const el = document.getElementById('eventTitle');
+    if (document.activeElement !== el) el.value = eventTitle; // 編集中は上書きしない
+  }
+  async function saveTitle() {
+    const el = document.getElementById('eventTitle');
+    const title = el.value.trim();
+    if (title === eventTitle) return;
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setTitle', title }),
+      });
+      if (!res.ok) throw new Error('save failed: ' + res.status);
+      const { data } = await res.json();
+      eventTitle = data.title || '';
+      el.value = eventTitle;
+    } catch (e) {
+      console.error('表題の保存に失敗しました', e);
+      alert('表題の保存に失敗しました。通信環境を確認してもう一度お試しください。');
+      el.value = eventTitle;
     }
   }
 
@@ -917,6 +967,7 @@
 
   function renderCalendar() {
     renderUserBadge();
+    renderTitle();
     renderUserList();
 
     // 過去の日付は前日までしか見せず、そこから合計30日分だけを表示するローリング表示
