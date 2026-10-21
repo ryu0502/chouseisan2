@@ -576,7 +576,9 @@
   }
   .switch-user-btn:hover { color: var(--text); }
   /* ログイン中だけ「切り替え」の横に出す。押し間違えないよう控えめな見た目+確認ダイアログ付き */
-  .switch-user-btn.delete-user-btn { margin-left: 10px; }
+  /* 「切り替え」「ユーザー削除」はログイン中の名前の下の行に並べる */
+  .user-actions { margin-top: 4px; }
+  .switch-user-btn.delete-user-btn { margin-left: 12px; }
   .switch-user-btn.delete-user-btn:hover { color: var(--danger); }
   .switch-user-btn[hidden] { display: none; }
   .notice-login-btn {
@@ -640,7 +642,7 @@
         </div>
       </div>
     </div>
-    <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><button class="switch-user-btn" id="switchUserBtn" onclick="showLogin()">ログイン</button><button class="switch-user-btn delete-user-btn" id="deleteUserBtn" onclick="deleteUser(CURRENT_USER)" hidden>ユーザー削除</button></div>
+    <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><div class="user-actions"><button class="switch-user-btn" id="switchUserBtn" onclick="showLogin()">ログイン</button><button class="switch-user-btn delete-user-btn" id="deleteUserBtn" onclick="deleteUser(CURRENT_USER)" hidden>ユーザー削除</button></div></div>
     <div id="userList" class="user-list"></div>
     <p class="sub">各日付をタップして時間を追加してください。<br>同日に複数の時間帯を追加する場合、追加したい時間を選択後に<strong>別の時間として登録</strong>をクリックしてください。<br>登録人数の<strong>70%以上</strong>、<strong>全員</strong>の時間が重なるとハイライトされます。</p>
     <div class="schedule-list" id="scheduleList"></div>
