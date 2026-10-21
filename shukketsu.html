@@ -260,9 +260,12 @@
     margin-top: 4px;
     font-size: 0.82em;
   }
-  /* 登録人数に対する一致人数の割合で青の濃さを変える(100%: 濃い / 70%以上: 普通) */
-  .summary-line.tier-normal { background: #86aaf0; }
-  .summary-line.tier-dark { background: #4a7fe0; }
+  /* 重なりは割合に応じたヒートマップ風のグラデーション(背景色は heatColor() でインライン指定)。
+     70%未満は背景になじむ半透明で控えめに、70%以上は不透明の青、全員はさらに縁取りで強調する */
+  .summary-line.tier-low { color: var(--muted); font-weight: 600; }
+  .summary-line.tier-low .match-time { font-size: 1em; font-weight: 700; }
+  .summary-line.tier-low .name-chip { background: rgba(255, 255, 255, 0.07); }
+  .summary-line.tier-all { box-shadow: 0 0 0 2px #d2e3fc, 0 2px 10px rgba(74, 127, 224, 0.5); }
   /* 一致人数 / 全登録者数。名前のチップと見分けやすいよう背景なしの数字にし、時刻のすぐ後ろに置く */
   .match-count {
     font-size: 1.05em;
@@ -658,7 +661,7 @@
     </div>
     <div class="user-badge-row"><span id="userBadge" class="user-badge"></span><div class="user-actions"><button class="switch-user-btn" id="switchUserBtn" onclick="showLogin()">ログイン</button><button class="switch-user-btn delete-user-btn" id="deleteUserBtn" onclick="deleteUser(CURRENT_USER)" hidden>ユーザー削除</button></div></div>
     <div id="userList" class="user-list"></div>
-    <p class="sub">各日付をタップして時間を追加してください。<br>同日に複数の時間帯を追加する場合、追加したい時間を選択後に<strong>別の時間として登録</strong>をクリックしてください。<br>登録人数の<strong>70%以上</strong>、<strong>全員</strong>の時間が重なるとハイライトされます。</p>
+    <p class="sub">各日付をタップして時間を追加してください。<br>同日に複数の時間帯を追加する場合、追加したい時間を選択後に<strong>別の時間として登録</strong>をクリックしてください。<br>2人以上が重なる時間は人数に応じた濃さで表示され、登録人数の<strong>70%以上</strong>、<strong>全員</strong>の時間が重なるとハイライトされます。</p>
     <div class="schedule-list" id="scheduleList"></div>
   </div>
 
@@ -745,12 +748,26 @@
   function nameKey(name) { return name.trim().replace(/\s+/g, ' ').normalize('NFKC').toLowerCase(); }
 
   // 登録人数に対する一致人数の割合でハイライトの濃さを決める(2人以上の一致のみ対象)
+  // 2人以上の重なりはすべて出し、70%以上と全員はハイライトとして強調する
   function highlightTier(count) {
     if (count < 2 || users.length === 0) return null;
     const ratio = count / users.length;
-    if (ratio >= 1) return 'dark';
-    if (ratio >= 0.7) return 'normal';
-    return null;
+    if (ratio >= 1) return 'all';
+    if (ratio >= 0.7) return 'high';
+    return 'low';
+  }
+  // 割合に応じたヒートマップ風の背景色
+  // 70%未満: 半透明の青を割合に応じて少しずつ濃く / 70%〜100%: 明るい青→濃い青
+  function heatColor(count) {
+    const ratio = count / users.length;
+    if (ratio < 0.7) {
+      const alpha = 0.06 + 0.2 * (ratio / 0.7);
+      return `rgba(138, 180, 248, ${alpha.toFixed(3)})`;
+    }
+    const t = Math.min(1, (ratio - 0.7) / 0.3);
+    const from = [168, 199, 250], to = [74, 127, 224]; // #a8c7fa → #4a7fe0
+    const c = from.map((v, i) => Math.round(v + (to[i] - v) * t));
+    return `rgb(${c.join(', ')})`;
   }
 
   // 仕事の時間帯で使うので、入力できるのは 9:00〜17:30(30分刻み)
@@ -935,7 +952,8 @@
 
       const { matched } = computeDaySummaries(schedule[ds]);
       const inputs = sortedEntries(schedule[ds]);
-      if (matched.length > 0) row.classList.add('has-match');
+      // 行の背景はハイライト(70%以上)がある日だけ強調する
+      if (matched.some(seg => seg.tier !== 'low')) row.classList.add('has-match');
       // 個人の時間があればハイライトが無い日も左列を確保して、右列の位置を日ごとに揃える
       const matchCol = document.createElement('div');
       matchCol.className = 'match-col';
@@ -943,6 +961,7 @@
       matched.forEach(seg => {
         const s = document.createElement('div');
         s.className = 'summary-line tier-' + seg.tier;
+        s.style.background = heatColor(seg.icons.length);
         // 1行目: 時刻と人数(目立たせる) / 2行目: 該当するユーザー
         const count = `<span class="match-count">${seg.icons.length}/${users.length}<small>人</small></span>`;
         s.innerHTML = `<div class="match-head"><span class="match-time">${formatRange(seg.start, seg.end, ' ~ ')}</span>${count}</div>`
