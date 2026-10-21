@@ -531,7 +531,7 @@
     font-size: 13.5px;
   }
   .entry-row.editing {
-    outline: 2px solid var(--accent);
+    box-shadow: inset 0 0 0 2px var(--accent);
   }
   .entry-row.foreign {
     opacity: 0.7;
@@ -553,10 +553,19 @@
   }
   .entry-row .del:hover { background: rgba(242, 139, 130, 0.28); }
   /* ---- ログインポップアップ ---- */
+  /* ログインのポップアップは窮屈にならないよう、幅と余白を広めにとる */
+  .modal.login-modal {
+    width: 480px;
+    padding: 26px 28px 28px;
+    border-radius: 20px;
+  }
+  .login-modal .modal-header { margin-bottom: 10px; }
+  .login-modal .modal-header h2 { font-size: 18px; }
   .login-note {
-    font-size: 12.5px;
+    font-size: 13px;
+    line-height: 1.6;
     color: var(--muted);
-    margin: 0 0 14px;
+    margin: 0 0 18px;
   }
   .login-input {
     width: 100%;
@@ -566,9 +575,11 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
-    margin: 0 0 12px;
+    margin: 0 0 14px;
+    -webkit-appearance: none;
+    appearance: none;
   }
-  .login-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .login-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .login-input[hidden] { display: none; }
   .login-error {
     font-size: 12.5px;
@@ -580,12 +591,15 @@
     font-size: 12px;
     font-weight: 600;
     color: var(--muted);
-    margin: 4px 0 8px;
+    margin: 6px 0 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
   }
+  .login-users-title:empty { display: none; }
   .login-users {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
   }
   .login-user-btn {
     border: none;
@@ -598,7 +612,7 @@
     cursor: pointer;
   }
   .login-user-btn:hover { background: var(--key-hover); }
-  .login-user-btn.current { outline: 2px solid var(--accent); }
+  .login-user-btn.current { box-shadow: inset 0 0 0 2px var(--accent); }
   /* 「ログイン」「切り替え」「ユーザー削除」はログイン中の名前の下の行に、小さめのボタンとして並べる */
   .user-actions {
     display: flex;
@@ -736,7 +750,7 @@
   </div>
 
   <div class="overlay" id="loginOverlay" hidden>
-    <form class="modal" id="loginForm">
+    <form class="modal login-modal" id="loginForm">
       <div class="modal-header">
         <h2>ユーザー名を入力</h2>
         <button type="button" class="close-btn" onclick="closeLogin()">×</button>
